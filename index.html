@@ -99,8 +99,25 @@ tailwind.config = {
       <a href="#planes" class="hover:text-white transition">Planes</a>
       <a href="#contacto" class="hover:text-white transition">Contacto</a>
     </div>
-    <a href="#descarga" class="text-sm font-semibold bg-white text-ink px-4 py-2 rounded-full hover:scale-105 transition">Probar SPES</a>
+    <div class="flex items-center gap-2">
+      <a href="#descarga" class="hidden sm:inline-block text-sm font-semibold bg-white text-ink px-4 py-2 rounded-full hover:scale-105 transition">Probar SPES</a>
+      <button id="navToggle" aria-label="Menú" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg border border-white/15 text-white">
+        <svg id="navIconOpen" viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg id="navIconClose" viewBox="0 0 24 24" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
   </nav>
+  <div id="navPanel" class="md:hidden hidden border-t border-white/10 bg-black/95 backdrop-blur-xl">
+    <div class="px-5 py-3 flex flex-col text-sm">
+      <a href="#producto" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Producto</a>
+      <a href="#mockup" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">El POS</a>
+      <a href="#funciones" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Funciones</a>
+      <a href="#hardware" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Hardware</a>
+      <a href="#planes" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Planes</a>
+      <a href="#contacto" class="py-2.5 text-white/80 hover:text-white">Contacto</a>
+      <a href="#descarga" class="mt-3 text-center bg-white text-ink font-semibold py-2.5 rounded-full">Probar SPES</a>
+    </div>
+  </div>
 </header>
 
 <!-- HERO -->
@@ -239,20 +256,20 @@ tailwind.config = {
             <span class="pos-muted">Sucursal Principal</span><span class="pos-faint">·</span><span class="pos-muted">Ventas</span>
           </div>
           <div class="ml-auto flex flex-wrap items-center gap-2 text-xs">
-            <span class="px-2.5 py-1 rounded-full border pos-bd pos-muted">Salir de pantalla completa</span>
+            <span class="hidden lg:inline-block px-2.5 py-1 rounded-full border pos-bd pos-muted">Salir de pantalla completa</span>
             <span class="flex items-center gap-1.5 pos-muted"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Conectado</span>
-            <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border pos-bd pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Reloj Laboral</span>
-            <span class="flex items-center gap-1.5 pos-muted"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Usuario demo <span class="pos-faint">(Administrador)</span></span>
+            <span class="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border pos-bd pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Reloj Laboral</span>
+            <span class="flex items-center gap-1.5 pos-muted"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Usuario demo <span class="hidden sm:inline pos-faint">(Administrador)</span></span>
             <span class="px-2.5 py-1 rounded-full border pos-bd font-semibold">Cambiar usuario</span>
-            <span class="px-2.5 py-1 rounded-full pos-muted">Bloquear</span>
+            <span class="hidden sm:inline-block px-2.5 py-1 rounded-full pos-muted">Bloquear</span>
           </div>
         </div>
 
         <div class="grid lg:grid-cols-[1.55fr_1fr]">
           <!-- LEFT: ventas -->
           <div class="p-4 border-r pos-bd">
-            <div class="flex items-center gap-2 mb-3">
-              <div class="flex-1 flex items-center gap-2 pos-chip border pos-bd rounded-lg px-3 py-2 pos-faint">
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <div class="flex-1 min-w-[180px] flex items-center gap-2 pos-chip border pos-bd rounded-lg px-3 py-2 pos-faint">
                 <svg viewBox="0 0 24 24" class="pos-ico"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
                 Escanea un codigo o busca por nombre, SKU, marca...
               </div>
@@ -624,6 +641,16 @@ tailwind.config = {
 <script>
   const io = new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.12});
   document.querySelectorAll('.fade-up').forEach(el=>io.observe(el));
+
+  // Menú móvil
+  (function(){
+    const t=document.getElementById('navToggle'), p=document.getElementById('navPanel'),
+          io_=document.getElementById('navIconOpen'), ic=document.getElementById('navIconClose');
+    if(!t) return;
+    function set(open){ p.classList.toggle('hidden',!open); io_.classList.toggle('hidden',open); ic.classList.toggle('hidden',!open); }
+    t.addEventListener('click',()=>set(p.classList.contains('hidden')));
+    p.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>set(false)));
+  })();
 
   const words=['ventas','inventario','reportes','caja','clientes','tu negocio'];
   const tEl=document.getElementById('typed'); let wi=0,ci=0,del=false;
