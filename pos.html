@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPES POS — La pantalla de ventas a fondo</title>
+<meta name="description" content="Conoce SPES POS a fondo: su pantalla de ventas real, todas sus funciones y el hardware compatible. El punto de venta que le da control a tu negocio.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="SPES POS — La pantalla de ventas a fondo">
+<meta property="og:description" content="La pantalla real del punto de venta SPES, sus funciones y hardware.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://spessystems.com/pos">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23000000'/%3E%3Ctext x='44' y='73' font-family='Georgia,serif' font-size='72' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3Ccircle cx='72' cy='67' r='7' fill='%239ca3af'/%3E%3C/svg%3E">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: { extend: {
+    fontFamily: { sans:['Inter','system-ui','sans-serif'], serif:['Playfair Display','Georgia','serif'], mono:['JetBrains Mono','monospace'] },
+    colors: { ink:'#000000', smoke:'#9ca3af' }
+  }}
+}
+</script>
+<style>
+  html { scroll-behavior:smooth; }
+  body { background:#000; color:#f5f5f5; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  .logo-S { font-family:'Playfair Display',Georgia,serif; line-height:1; }
+  .mono { font-family:'JetBrains Mono',monospace; }
+  .ico { width:1.5rem; height:1.5rem; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .aura { position:absolute; border-radius:9999px; filter:blur(90px); opacity:.5; z-index:0; pointer-events:none;
+          background:radial-gradient(circle, rgba(255,255,255,.18), transparent 70%); animation:float 16s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(20px,-30px) scale(1.1)} }
+  .shimmer { background:linear-gradient(100deg,#fff 20%,#6b7280 40%,#fff 60%); background-size:200% auto;
+             -webkit-background-clip:text; background-clip:text; color:transparent; animation:shine 6s linear infinite; }
+  @keyframes shine { to{background-position:-200% center} }
+  .fade-up { opacity:0; transform:translateY(28px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+  .fade-up.in { opacity:1; transform:none; }
+  .card { position:relative; transition:transform .35s ease, border-color .35s ease, background .35s ease; }
+  .card:hover { transform:translateY(-6px); border-color:rgba(255,255,255,.35); background:rgba(255,255,255,.05); }
+  .card::before { content:''; position:absolute; inset:0; border-radius:inherit; opacity:0; transition:opacity .35s;
+    background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.12), transparent 65%); }
+  .card:hover::before { opacity:1; }
+  ::selection { background:#fff; color:#000; }
+  .glow { box-shadow:0 0 90px -25px rgba(255,255,255,.4); }
+
+  /* ===== POS (themable) ===== */
+  .pos { --bg:#ffffff; --text:#1f2937; --muted:#6b7280; --faint:#9ca3af; --border:#e5e7eb;
+         --panel:#f9fafb; --chip:#ffffff; --accent:#374151; --accentText:#ffffff; color:var(--text); }
+  .pos.dark { --bg:#0b0b0b; --text:#f2f2f2; --muted:#9ca3af; --faint:#6b7280; --border:rgba(255,255,255,.12);
+         --panel:#141414; --chip:#171717; --accent:#ffffff; --accentText:#000000; }
+  .pos-bg{background:var(--bg);} .pos-panel{background:var(--panel);} .pos-chip{background:var(--chip);}
+  .pos-bd{border-color:var(--border);} .pos-muted{color:var(--muted);} .pos-faint{color:var(--faint);}
+  .pos-accent{background:var(--accent);color:var(--accentText);}
+  .pos-ico{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important} }
+</style>
+</head>
+<body class="font-sans antialiased">
+
+<canvas id="starfield" aria-hidden="true" style="position:fixed; inset:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
+
+<!-- NAV -->
+<header class="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/10">
+  <nav class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 group">
+      <span class="logo-S text-2xl font-black text-white">S<span class="text-smoke">.</span></span>
+      <span class="text-sm font-semibold tracking-wide text-white/90 group-hover:text-white transition">SPES Systems</span>
+    </a>
+    <div class="hidden md:flex items-center gap-7 text-sm text-white/65">
+      <a href="/" class="hover:text-white transition">Inicio</a>
+      <a href="#pantalla" class="hover:text-white transition">La pantalla</a>
+      <a href="#funciones" class="hover:text-white transition">Funciones</a>
+      <a href="#hardware" class="hover:text-white transition">Hardware</a>
+      <a href="/#planes" class="hover:text-white transition">Planes</a>
+      <a href="/#contacto" class="hover:text-white transition">Contacto</a>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/#contacto" class="hidden sm:inline-block text-sm font-semibold bg-white text-ink px-4 py-2 rounded-full hover:scale-105 transition">Solicitar demo</a>
+      <button id="navToggle" aria-label="Menú" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg border border-white/15 text-white">
+        <svg id="navIconOpen" viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg id="navIconClose" viewBox="0 0 24 24" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+  </nav>
+  <div id="navPanel" class="md:hidden hidden border-t border-white/10 bg-black/95 backdrop-blur-xl">
+    <div class="px-5 py-3 flex flex-col text-sm">
+      <a href="/" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Inicio</a>
+      <a href="#pantalla" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">La pantalla</a>
+      <a href="#funciones" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Funciones</a>
+      <a href="#hardware" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Hardware</a>
+      <a href="/#planes" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Planes</a>
+      <a href="/#contacto" class="py-2.5 text-white/80 hover:text-white">Contacto</a>
+      <a href="/#contacto" class="mt-3 text-center bg-white text-ink font-semibold py-2.5 rounded-full">Solicitar demo</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO POS -->
+<section class="relative pt-32 pb-14 overflow-hidden">
+  <div class="aura w-[500px] h-[500px] -top-20 right-0"></div>
+  <div class="max-w-6xl mx-auto px-5 relative z-10 text-center">
+    <a href="/" class="inline-flex items-center gap-2 text-xs text-white/50 hover:text-white transition mb-6">← Volver al inicio</a>
+    <p class="text-smoke text-sm tracking-[0.3em] uppercase mb-4 mono">El producto</p>
+    <h1 class="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.04] tracking-tight">
+      SPES POS <span class="shimmer">a fondo.</span>
+    </h1>
+    <p class="mt-6 text-lg text-white/70 max-w-2xl mx-auto leading-relaxed">
+      Esta es la <span class="text-white font-semibold">pantalla real de ventas</span>: táctil, en español y diseñada para cobrar rápido. Conoce cada función y el hardware que la acompaña.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-4">
+      <a href="#pantalla" class="bg-white text-ink font-semibold px-7 py-3.5 rounded-full hover:scale-105 transition glow">Ver la pantalla ↓</a>
+      <a href="/#contacto" class="border border-white/25 text-white font-semibold px-7 py-3.5 rounded-full hover:bg-white/10 transition">Solicitar demo gratis</a>
+    </div>
+  </div>
+</section>
+
+<!-- PANTALLA (recreación fiel) -->
+<section id="pantalla" class="py-14 relative overflow-hidden">
+  <div class="aura w-[420px] h-[420px] top-10 left-0 opacity-30"></div>
+  <div class="max-w-6xl mx-auto px-5 relative z-10">
+    <div class="text-center mb-8 fade-up">
+      <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">La pantalla de ventas, de verdad</h2>
+      <p class="mt-3 text-white/60 max-w-2xl mx-auto">Una recreación fiel de SPES POS en acción: ticket, mayoreo automático, pago y corte de caja.</p>
+      <div class="mt-6 inline-flex items-center gap-1 border border-white/15 rounded-full p-1 text-sm">
+        <button id="btnLight" class="px-4 py-1.5 rounded-full bg-white text-ink font-semibold transition">Claro</button>
+        <button id="btnDark" class="px-4 py-1.5 rounded-full text-white/70 hover:text-white font-semibold transition">Oscuro</button>
+      </div>
+    </div>
+
+    <div class="fade-up rounded-2xl border border-white/15 bg-[#0c0c0c] overflow-hidden glow shadow-2xl">
+      <div class="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 bg-white/[0.03]">
+        <span class="w-3 h-3 rounded-full bg-white/20"></span><span class="w-3 h-3 rounded-full bg-white/20"></span><span class="w-3 h-3 rounded-full bg-white/20"></span>
+        <span class="ml-3 text-xs text-white/40 mono">SPES POS — Ventas</span>
+      </div>
+
+      <div id="pos" class="pos pos-bg text-[13px]">
+        <!-- top bar -->
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 border-b pos-bd">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center logo-S font-black text-sm">S<span class="text-smoke">.</span></span>
+            <span class="font-bold">SPES Systems</span>
+            <span class="pos-muted">Sucursal Principal</span><span class="pos-faint">·</span><span class="pos-muted">Ventas</span>
+          </div>
+          <div class="ml-auto flex flex-wrap items-center gap-2 text-xs">
+            <span class="hidden lg:inline-block px-2.5 py-1 rounded-full border pos-bd pos-muted">Salir de pantalla completa</span>
+            <span class="flex items-center gap-1.5 pos-muted"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Conectado</span>
+            <span class="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border pos-bd pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Reloj Laboral</span>
+            <span class="flex items-center gap-1.5 pos-muted"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Usuario demo <span class="hidden sm:inline pos-faint">(Administrador)</span></span>
+            <span class="px-2.5 py-1 rounded-full border pos-bd font-semibold">Cambiar usuario</span>
+            <span class="hidden sm:inline-block px-2.5 py-1 rounded-full pos-muted">Bloquear</span>
+          </div>
+        </div>
+
+        <div class="grid lg:grid-cols-[1.55fr_1fr]">
+          <!-- LEFT: ventas -->
+          <div class="p-4 border-r pos-bd">
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <div class="flex-1 min-w-[180px] flex items-center gap-2 pos-chip border pos-bd rounded-lg px-3 py-2 pos-faint">
+                <svg viewBox="0 0 24 24" class="pos-ico"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                Escanea un codigo o busca por nombre, SKU, marca...
+              </div>
+              <button class="w-9 h-9 rounded-lg border pos-bd flex items-center justify-center pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><circle cx="9" cy="21" r="1"/><circle cx="17" cy="21" r="1"/><path d="M3 3h2l.4 2M7 13h10l3-6H5.4"/></svg></button>
+              <button class="px-3 py-2 rounded-lg border pos-bd font-medium">Consultar precio</button>
+              <button class="px-3 py-2 rounded-lg border pos-bd font-medium">Venta Libre</button>
+            </div>
+            <div class="flex items-center gap-2 mb-3 text-xs">
+              <span class="px-2 py-1 rounded border pos-bd font-medium">Editar</span>
+              <span class="pos-faint">Sin accesos rápidos. Usa "Editar" para agregar.</span>
+            </div>
+            <div class="rounded-xl border-2 border-dashed pos-bd h-32 flex items-center justify-center text-center px-6 pos-faint mb-4">
+              Escanea, busca o usa tus accesos rapidos para agregar al carrito.
+            </div>
+
+            <div class="flex items-center justify-between mb-1">
+              <div class="inline-flex rounded-lg border pos-bd overflow-hidden text-xs font-medium">
+                <span class="px-3 py-1.5 pos-accent">Cantidad</span>
+                <span class="px-3 py-1.5 pos-muted">Peso</span>
+                <span class="px-3 py-1.5 pos-muted">Importe</span>
+              </div>
+              <span class="font-bold text-base">5 <span class="pos-muted text-sm">kg</span></span>
+            </div>
+            <div class="pos-faint text-xs mb-2">Cantidad de Jitomate (piezas)</div>
+            <div class="grid grid-cols-3 gap-2 text-center font-semibold">
+              <span class="py-2.5 rounded-lg border pos-bd">1</span><span class="py-2.5 rounded-lg border pos-bd">2</span><span class="py-2.5 rounded-lg border pos-bd">3</span>
+              <span class="py-2.5 rounded-lg border pos-bd">4</span><span class="py-2.5 rounded-lg border pos-bd">5</span><span class="py-2.5 rounded-lg border pos-bd">6</span>
+              <span class="py-2.5 rounded-lg border pos-bd">7</span><span class="py-2.5 rounded-lg border pos-bd">8</span><span class="py-2.5 rounded-lg border pos-bd">9</span>
+              <span class="py-2.5 rounded-lg border pos-bd">00</span><span class="py-2.5 rounded-lg border pos-bd">0</span>
+              <span class="py-2.5 rounded-lg border pos-bd flex items-center justify-center pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><path d="M21 5H8l-5 7 5 7h13a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m12 9 4 6M16 9l-4 6"/></svg></span>
+              <span class="col-span-3 py-2.5 rounded-lg border pos-bd pos-muted">Limpiar</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: carrito -->
+          <div class="p-4 flex flex-col">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-bold text-base">Carrito (3)</span>
+              <span class="pos-faint text-xs">Vaciar</span>
+            </div>
+            <div class="flex items-center justify-between text-xs pb-2 mb-1 border-b pos-bd">
+              <span class="pos-muted">Cliente: público en general</span><span class="pos-faint">asignar</span>
+            </div>
+            <div class="text-xs pos-faint pb-3 mb-1 border-b pos-bd">+ Aplicar descuento</div>
+
+            <div class="space-y-3 flex-1">
+              <div class="pb-3 border-b pos-bd">
+                <div class="flex justify-between"><span class="font-medium">Jitomate</span><span class="pos-faint text-xs">✕</span></div>
+                <div class="mono text-[11px] pos-faint">P000001 · $23.25 /kg</div>
+                <div class="flex justify-between items-end mt-1"><span class="pos-muted text-xs">5 kg</span><span class="font-semibold">$116.25</span></div>
+                <div class="mt-1.5 text-[11px] flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span class="line-through pos-faint">Normal: $25.00/kg</span>
+                  <span class="pos-muted">Aplicado: $23.25/kg</span>
+                  <span class="pos-muted">✓ Mayoreo aplicado · Ahorro: $8.75</span>
+                </div>
+              </div>
+              <div class="pb-3 border-b pos-bd">
+                <div class="flex justify-between"><span class="font-medium">Cebolla</span><span class="pos-faint text-xs">✕</span></div>
+                <div class="mono text-[11px] pos-faint">P000011 · $14.00</div>
+                <div class="flex justify-between items-center mt-2">
+                  <span class="inline-flex items-center gap-3 border pos-bd rounded-lg px-2 py-1">
+                    <span class="pos-muted">−</span><span class="font-semibold">1</span><span class="pos-muted">+</span>
+                  </span>
+                  <span class="font-semibold">$14.00</span>
+                </div>
+              </div>
+              <div class="pb-2">
+                <div class="flex justify-between"><span class="font-medium">Brocoli</span><span class="pos-faint text-xs">✕</span></div>
+                <div class="mono text-[11px] pos-faint">P000017 · $28.00 /kg</div>
+                <div class="flex justify-between items-end mt-1"><span class="pos-muted text-xs">1 kg</span><span class="font-semibold">$28.00</span></div>
+              </div>
+            </div>
+
+            <div class="border-t pos-bd pt-3 mt-2 space-y-1.5">
+              <div class="flex justify-between text-xs pos-muted"><span>Subtotal</span><span>$167.00</span></div>
+              <div class="flex justify-between text-xs pos-muted"><span>Descuento automático</span><span>- $8.75</span></div>
+              <div class="flex justify-between items-end pt-1"><span class="font-bold">Total</span><span class="text-2xl font-extrabold">$158.25</span></div>
+              <button class="w-full mt-2 pos-accent font-bold py-3 rounded-xl">Cobrar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- bottom nav -->
+        <div class="grid grid-cols-5 border-t pos-bd text-[11px]">
+          <div class="py-2.5 flex flex-col items-center gap-1 font-semibold border-t-2 border-black -mt-px"><svg viewBox="0 0 24 24" class="pos-ico"><circle cx="9" cy="21" r="1"/><circle cx="17" cy="21" r="1"/><path d="M3 3h2l.4 2M7 13h10l3-6H5.4M7 13 5.4 5"/></svg>Ventas</div>
+          <div class="py-2.5 flex flex-col items-center gap-1 pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Inventario</div>
+          <div class="py-2.5 flex flex-col items-center gap-1 pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/></svg>Articulos</div>
+          <div class="py-2.5 flex flex-col items-center gap-1 pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>Reportes</div>
+          <div class="py-2.5 flex flex-col items-center gap-1 pos-muted"><svg viewBox="0 0 24 24" class="pos-ico"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>Menu</div>
+        </div>
+      </div>
+    </div>
+    <p class="text-center text-xs text-white/35 mt-5 mono">* Recreación con fines ilustrativos</p>
+  </div>
+</section>
+
+<!-- FUNCIONES -->
+<section id="funciones" class="py-24 bg-white/[0.02] border-y border-white/10">
+  <div class="max-w-6xl mx-auto px-5">
+    <div class="text-center mb-16 fade-up">
+      <p class="text-smoke text-sm tracking-[0.3em] uppercase mb-4 mono">Todo lo que incluye</p>
+      <h2 class="text-4xl sm:text-5xl font-extrabold tracking-tight">Funciones para darle control a tu negocio</h2>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.5A1 1 0 0 0 5.6 19H17"/><circle cx="9" cy="21" r="1"/><circle cx="17" cy="21" r="1"/></svg><h3 class="font-semibold mb-1.5">Ventas rápidas</h3><p class="text-white/55 text-sm">Escaneo, productos a peso, mayoreo automático y cobro táctil con pago mixto.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg><h3 class="font-semibold mb-1.5">Etiquetas y códigos</h3><p class="text-white/55 text-sm">Genera códigos de barras internos (EAN-13) e imprime etiquetas desde un producto.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><h3 class="font-semibold mb-1.5">Pago mixto</h3><p class="text-white/55 text-sm">Combina efectivo, tarjeta y transferencia; el cambio sale solo del efectivo.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg><h3 class="font-semibold mb-1.5">Inventario y mermas</h3><p class="text-white/55 text-sm">Entradas, salidas, mermas, robo y ajustes con historial y alertas de stock.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><h3 class="font-semibold mb-1.5">Clientes y lealtad</h3><p class="text-white/55 text-sm">Base de clientes con puntos, cotizaciones y cuentas abiertas.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9.5" y="11" width="5" height="4" rx="1"/><path d="M10.5 11V9.5a1.5 1.5 0 0 1 3 0V11"/></svg><h3 class="font-semibold mb-1.5">Roles y permisos</h3><p class="text-white/55 text-sm">RBAC con permisos por usuario, PIN protegido y bitácora de auditoría.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg><h3 class="font-semibold mb-1.5">Reportes y caja</h3><p class="text-white/55 text-sm">Ventas del día, ticket promedio, punto de equilibrio y arqueo de caja exacto.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg><h3 class="font-semibold mb-1.5">Devoluciones</h3><p class="text-white/55 text-sm">Detecta el ticket al escanearlo y procesa devoluciones con comprobante.</p></div>
+      <div class="card fade-up p-6 rounded-xl border border-white/10"><svg viewBox="0 0 24 24" class="ico mb-3 text-white"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg><h3 class="font-semibold mb-1.5">Listo para crecer</h3><p class="text-white/55 text-sm">Preparado para multisucursal: cuando crezcas, consolidas tiendas sin migrar.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- HARDWARE -->
+<section id="hardware" class="py-24 relative overflow-hidden">
+  <div class="aura w-[420px] h-[420px] right-0 top-20 opacity-25"></div>
+  <div class="max-w-6xl mx-auto px-5 relative z-10">
+    <div class="text-center mb-16 fade-up">
+      <p class="text-smoke text-sm tracking-[0.3em] uppercase mb-4 mono">Accesorios y hardware</p>
+      <h2 class="text-4xl sm:text-5xl font-extrabold tracking-tight">El equipo, listo para tu mostrador</h2>
+      <p class="mt-5 text-white/60 max-w-2xl mx-auto">Lleva SPES POS y el hardware que necesitas en un solo lugar, probado y configurado.</p>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="card fade-up p-7 rounded-2xl border border-white/10 flex flex-col"><div class="h-24 flex items-center justify-center mb-5"><svg viewBox="0 0 64 64" class="w-20 h-20 text-white" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="22" width="44" height="22" rx="3"/><path d="M18 22v-9a2 2 0 0 1 2-2h24a2 2 0 0 1 2 2v9"/><rect x="20" y="40" width="24" height="16" rx="2"/><path d="M25 46h14M25 50h10"/></svg></div><h3 class="font-semibold text-lg mb-1.5">Impresora de tickets</h3><p class="text-white/55 text-sm flex-1">Térmica de 80&nbsp;mm con corte automático. Imprime el ticket al instante.</p><a href="/#contacto" class="mt-5 text-sm font-semibold text-white hover:underline">Cotizar →</a></div>
+      <div class="card fade-up p-7 rounded-2xl border border-white/10 flex flex-col"><div class="h-24 flex items-center justify-center mb-5"><svg viewBox="0 0 64 64" class="w-20 h-20 text-white" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14h10a4 4 0 0 1 4 4v8a6 6 0 0 1-6 6h-2"/><rect x="10" y="30" width="16" height="24" rx="3"/><path d="M14 38v8M18 38v8M22 38v8"/></svg></div><h3 class="font-semibold text-lg mb-1.5">Lector de código de barras</h3><p class="text-white/55 text-sm flex-1">Escáner láser USB plug-and-play. Cobra rápido y sin errores.</p><a href="/#contacto" class="mt-5 text-sm font-semibold text-white hover:underline">Cotizar →</a></div>
+      <div class="card fade-up p-7 rounded-2xl border border-white/10 flex flex-col"><div class="h-24 flex items-center justify-center mb-5"><svg viewBox="0 0 64 64" class="w-20 h-20 text-white" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="24" width="44" height="26" rx="3"/><path d="M10 34h44"/><rect x="22" y="38" width="20" height="8" rx="1"/></svg></div><h3 class="font-semibold text-lg mb-1.5">Cajón de dinero</h3><p class="text-white/55 text-sm flex-1">Se abre solo al cobrar en efectivo. Con llave y compartimentos.</p><a href="/#contacto" class="mt-5 text-sm font-semibold text-white hover:underline">Cotizar →</a></div>
+      <div class="card fade-up p-7 rounded-2xl border border-white/10 flex flex-col"><div class="h-24 flex items-center justify-center mb-5"><svg viewBox="0 0 64 64" class="w-20 h-20 text-white" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="24" width="40" height="18" rx="3"/><path d="M12 31h40"/><rect x="22" y="40" width="20" height="14" rx="2"/></svg></div><h3 class="font-semibold text-lg mb-1.5">Impresora de etiquetas</h3><p class="text-white/55 text-sm flex-1">Etiquetas con código de barras y precio para granel o productos sin código.</p><a href="/#contacto" class="mt-5 text-sm font-semibold text-white hover:underline">Cotizar →</a></div>
+      <div class="card fade-up p-7 rounded-2xl border border-white/10 flex flex-col"><div class="h-24 flex items-center justify-center mb-5"><svg viewBox="0 0 64 64" class="w-20 h-20 text-white" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="12" width="40" height="30" rx="3"/><rect x="17" y="17" width="30" height="20" rx="1"/><path d="M26 50h12l2 6H24z"/><path d="M18 56h28"/></svg></div><h3 class="font-semibold text-lg mb-1.5">Pantalla táctil / Terminal</h3><p class="text-white/55 text-sm flex-1">Monitor táctil o equipo todo-en-uno con SPES POS preinstalado.</p><a href="/#contacto" class="mt-5 text-sm font-semibold text-white hover:underline">Cotizar →</a></div>
+      <div class="fade-up p-7 rounded-2xl border-2 border-white bg-white/[0.05] flex flex-col relative glow"><span class="absolute -top-3 left-7 bg-white text-ink text-xs font-bold px-3 py-1 rounded-full">Recomendado</span><div class="h-24 flex items-center justify-center mb-5"><svg viewBox="0 0 64 64" class="w-20 h-20 text-white" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="14" width="36" height="26" rx="3"/><rect x="19" y="19" width="26" height="16" rx="1"/><rect x="10" y="46" width="20" height="10" rx="2"/><rect x="36" y="46" width="18" height="10" rx="2"/></svg></div><h3 class="font-semibold text-lg mb-1.5">Kit completo</h3><p class="text-white/70 text-sm flex-1">SPES POS + impresora + lector + cajón. Configurado y listo para vender el mismo día.</p><a href="/#contacto" class="mt-5 text-center bg-white text-ink rounded-full py-2.5 font-semibold hover:scale-105 transition">Pide tu kit</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-24 bg-white/[0.02] border-t border-white/10 relative overflow-hidden">
+  <div class="aura w-[460px] h-[460px] left-1/2 -translate-x-1/2 top-0 opacity-40"></div>
+  <div class="max-w-3xl mx-auto px-5 text-center fade-up relative z-10">
+    <span class="logo-S text-6xl font-black text-white">S<span class="text-smoke">.</span></span>
+    <h2 class="mt-6 text-4xl sm:text-5xl font-extrabold tracking-tight">¿Listo para verlo en tu negocio?</h2>
+    <p class="mt-4 text-white/65 max-w-xl mx-auto">Te damos una demo real con tus productos y resolvemos todas tus dudas. Sin compromiso.</p>
+    <div class="mt-9 flex flex-wrap justify-center gap-4">
+      <a href="/#contacto" class="bg-white text-ink font-semibold px-8 py-3.5 rounded-full hover:scale-105 transition glow">Solicitar demo gratis</a>
+      <a href="/" class="border border-white/25 text-white font-semibold px-7 py-3.5 rounded-full hover:bg-white/10 transition">Volver al inicio</a>
+    </div>
+  </div>
+</section>
+
+<footer class="border-t border-white/10 py-12">
+  <div class="max-w-6xl mx-auto px-5 flex flex-col sm:flex-row items-center justify-between gap-6">
+    <a href="/" class="flex items-center gap-3"><span class="logo-S text-2xl font-black text-white">S<span class="text-smoke">.</span></span><div class="text-sm"><div class="font-semibold">SPES Systems</div><div class="text-white/40 text-xs">Control inteligente para tu empresa.</div></div></a>
+    <div class="flex items-center gap-6 text-sm text-white/55">
+      <a href="/" class="hover:text-white transition">Inicio</a>
+      <a href="/#planes" class="hover:text-white transition">Planes</a>
+      <a href="mailto:contacspes@gmail.com" class="hover:text-white transition">Contacto</a>
+    </div>
+  </div>
+  <div class="max-w-6xl mx-auto px-5 mt-8 text-center text-xs text-white/30 mono">© 2026 SPES Systems · Hecho en México · spessystems.com</div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.12});
+  document.querySelectorAll('.fade-up').forEach(el=>io.observe(el));
+
+  // Menú móvil
+  (function(){
+    const t=document.getElementById('navToggle'), p=document.getElementById('navPanel'),
+          io_=document.getElementById('navIconOpen'), ic=document.getElementById('navIconClose');
+    if(!t) return;
+    function set(open){ p.classList.toggle('hidden',!open); io_.classList.toggle('hidden',open); ic.classList.toggle('hidden',!open); }
+    t.addEventListener('click',()=>set(p.classList.contains('hidden')));
+    p.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>set(false)));
+  })();
+
+  // Tema del POS
+  (function(){
+    const pos=document.getElementById('pos'), bL=document.getElementById('btnLight'), bD=document.getElementById('btnDark');
+    if(!pos) return;
+    function setPos(dark){ pos.classList.toggle('dark',dark);
+      bD.classList.toggle('bg-white',dark); bD.classList.toggle('text-ink',dark); bD.classList.toggle('text-white/70',!dark);
+      bL.classList.toggle('bg-white',!dark); bL.classList.toggle('text-ink',!dark); bL.classList.toggle('text-white/70',dark);
+    }
+    bL.onclick=()=>setPos(false); bD.onclick=()=>setPos(true);
+  })();
+
+  // Starfield
+  (function(){
+    const c=document.getElementById('starfield'); if(!c) return;
+    const ctx=c.getContext('2d');
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let w,h,dpr,stars=[],neb=[],mx=0,my=0,tx=0,ty=0,t=0;
+    function resize(){
+      dpr=Math.min(window.devicePixelRatio||1,2);
+      w=c.width=innerWidth*dpr; h=c.height=innerHeight*dpr;
+      const count=Math.min(170, Math.floor((innerWidth*innerHeight)/13000));
+      stars=[];
+      for(let i=0;i<count;i++){ stars.push({ x:Math.random()*w, y:Math.random()*h, z:Math.random(),
+        r:(Math.random()*0.9+0.3)*dpr, a:Math.random()*0.45+0.18, tw:Math.random()*6.28, ts:Math.random()*0.5+0.25 }); }
+      neb=[ {x:w*0.28,y:h*0.32,r:Math.max(w,h)*0.5,a:0.05}, {x:w*0.78,y:h*0.7,r:Math.max(w,h)*0.42,a:0.035} ];
+    }
+    function frame(){
+      t+=0.004; tx+=(mx-tx)*0.04; ty+=(my-ty)*0.04; ctx.clearRect(0,0,w,h);
+      for(const n of neb){ const g=ctx.createRadialGradient(n.x+tx*30*dpr,n.y+ty*30*dpr,0,n.x,n.y,n.r);
+        g.addColorStop(0,'rgba(220,225,255,'+n.a+')'); g.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); }
+      for(const s of stars){ const par=s.z*2+0.2; const px=s.x+tx*par*26*dpr, py=s.y+ty*par*26*dpr;
+        const tw=reduce?1:(0.6+0.4*Math.sin(t*s.ts*6+s.tw)); ctx.beginPath(); ctx.arc(px,py,s.r*(0.7+s.z*0.8),0,6.2832);
+        ctx.fillStyle='rgba(255,255,255,'+(s.a*tw).toFixed(3)+')'; ctx.fill(); }
+      if(!reduce) requestAnimationFrame(frame);
+    }
+    addEventListener('resize',resize);
+    addEventListener('mousemove',e=>{ mx=(e.clientX/innerWidth-0.5); my=(e.clientY/innerHeight-0.5); },{passive:true});
+    resize(); frame();
+  })();
+</script>
+</body>
+</html>
