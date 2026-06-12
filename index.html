@@ -370,14 +370,16 @@ tailwind.config = {
     <p class="text-smoke text-sm tracking-[0.3em] uppercase mb-4 mono">Contacto</p>
     <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Hablemos de tu negocio</h2>
     <p class="mt-4 text-white/65">Demo gratis, dudas o cotización: escríbenos y te respondemos.</p>
-    <form class="mt-10 grid gap-4 text-left" onsubmit="return handleContacto(event)">
+    <form id="leadForm" class="mt-10 grid gap-4 text-left" onsubmit="return handleContacto(event)">
       <div class="grid sm:grid-cols-2 gap-4">
         <input required name="nombre" placeholder="Tu nombre" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
         <input required name="negocio" placeholder="Tu negocio" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       </div>
       <input required type="email" name="correo" placeholder="Tu correo" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       <textarea name="mensaje" rows="3" placeholder="¿En qué te ayudamos?" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition"></textarea>
-      <button type="submit" class="bg-white text-ink font-semibold py-3.5 rounded-full hover:scale-[1.02] transition">Enviar mensaje</button>
+      <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+      <button id="leadBtn" type="submit" class="bg-white text-ink font-semibold py-3.5 rounded-full hover:scale-[1.02] transition disabled:opacity-60">Enviar mensaje</button>
+      <p id="leadMsg" class="text-sm text-center hidden"></p>
     </form>
     <p class="mt-6 text-sm text-white/50">O escríbenos directo a
       <a href="mailto:contacspes@gmail.com" class="text-white underline underline-offset-4 hover:text-smoke">contacspes@gmail.com</a>
@@ -492,10 +494,39 @@ tailwind.config = {
     resize(); frame();
   })();
 
-  function handleContacto(e){ e.preventDefault(); const f=e.target;
-    const asunto=encodeURIComponent('Interés en SPES POS — '+(f.negocio.value||''));
-    const cuerpo=encodeURIComponent('Nombre: '+f.nombre.value+'\nNegocio: '+f.negocio.value+'\nCorreo: '+f.correo.value+'\n\n'+(f.mensaje.value||''));
-    window.location.href='mailto:contacspes@gmail.com?subject='+asunto+'&body='+cuerpo; return false; }
+  // Formulario -> Supabase (llave publishable, segura para el navegador)
+  const SB_URL='https://zhongioqoiywsenxigxh.supabase.co';
+  const SB_KEY='sb_publishable_v2PuhEY-pMvrg1kVDPcFTg_0ls_sqLM';
+  async function handleContacto(e){
+    e.preventDefault();
+    const f=e.target;
+    if(f.website && f.website.value) return false; // honeypot anti-spam
+    const btn=document.getElementById('leadBtn'), msg=document.getElementById('leadMsg');
+    const old=btn.textContent; btn.disabled=true; btn.textContent='Enviando…'; msg.className='text-sm text-center hidden';
+    try{
+      const r=await fetch(SB_URL+'/rest/v1/leads',{
+        method:'POST',
+        headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+        body: JSON.stringify({
+          nombre:(f.nombre.value||'').trim(),
+          negocio:(f.negocio.value||'').trim()||null,
+          correo:(f.correo.value||'').trim(),
+          mensaje:(f.mensaje.value||'').trim()||null,
+          origen:'web'
+        })
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      f.reset();
+      msg.textContent='¡Listo! Recibimos tu mensaje. Te contactamos muy pronto.';
+      msg.className='text-sm text-center text-emerald-400';
+    }catch(err){
+      msg.textContent='Hubo un problema al enviar. Escríbenos directo a contacspes@gmail.com';
+      msg.className='text-sm text-center text-red-400';
+    }finally{
+      btn.disabled=false; btn.textContent=old;
+    }
+    return false;
+  }
 </script>
 </body>
 </html>
