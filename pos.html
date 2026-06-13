@@ -86,6 +86,17 @@ tailwind.config = {
     </a>
     <div class="hidden md:flex items-center gap-7 text-sm text-white/65">
       <a href="/" class="hover:text-white transition">Inicio</a>
+      <div class="relative group">
+        <button class="hover:text-white transition inline-flex items-center gap-1">Soluciones
+          <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 group-hover:rotate-180 transition" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-3 hidden group-hover:block">
+          <div class="w-72 rounded-xl border border-white/10 bg-black/95 backdrop-blur-xl p-2 shadow-2xl">
+            <a href="/pos" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Tiendas y abarrotes</span><span class="text-[10px] text-emerald-400 border border-emerald-400/30 rounded-full px-2 py-0.5">Disponible</span></a>
+            <a href="/restaurantes" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Restaurantes</span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Acceso anticipado</span></a>
+          </div>
+        </div>
+      </div>
       <a href="#pantalla" class="hover:text-white transition">La pantalla</a>
       <a href="#funciones" class="hover:text-white transition">Funciones</a>
       <a href="#hardware" class="hover:text-white transition">Hardware</a>
@@ -103,6 +114,9 @@ tailwind.config = {
   <div id="navPanel" class="md:hidden hidden border-t border-white/10 bg-black/95 backdrop-blur-xl">
     <div class="px-5 py-3 flex flex-col text-sm">
       <a href="/" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Inicio</a>
+      <div class="py-2 text-white/40 text-xs uppercase tracking-wider">Soluciones</div>
+      <a href="/pos" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Tiendas y abarrotes</a>
+      <a href="/restaurantes" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Restaurantes</a>
       <a href="#pantalla" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">La pantalla</a>
       <a href="#funciones" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Funciones</a>
       <a href="#hardware" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Hardware</a>
