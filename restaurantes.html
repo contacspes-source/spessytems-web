@@ -18,6 +18,7 @@
 <meta name="twitter:image" content="https://spessystems.com/assets/og-image.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23000000'/%3E%3Ctext x='44' y='73' font-family='Georgia,serif' font-size='72' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3Ccircle cx='72' cy='67' r='7' fill='%239ca3af'/%3E%3C/svg%3E">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -198,6 +199,7 @@ tailwind.config = { theme: { extend: {
       <input required type="email" name="correo" placeholder="Tu correo" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       <textarea name="mensaje" rows="3" placeholder="Cuéntanos de tu restaurante (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition"></textarea>
       <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
+      <div class="cf-turnstile flex justify-center" data-sitekey="0x4AAAAAADkGkS8LBw02W1fz" data-theme="dark"></div>
       <button id="leadBtn" type="submit" class="bg-white text-ink font-semibold py-3.5 rounded-full hover:scale-[1.02] transition disabled:opacity-60">Quiero acceso anticipado</button>
       <p id="leadMsg" class="text-sm text-center hidden"></p>
     </form>
@@ -234,29 +236,30 @@ tailwind.config = { theme: { extend: {
   document.querySelectorAll('.card').forEach(c=>{ c.addEventListener('mousemove',ev=>{const r=c.getBoundingClientRect();
     c.style.setProperty('--mx',(ev.clientX-r.left)+'px'); c.style.setProperty('--my',(ev.clientY-r.top)+'px');}); });
 
-  // Formulario -> Supabase (origen: restaurantes)
-  const SB_URL='https://zhongioqoiywsenxigxh.supabase.co';
-  const SB_KEY='sb_publishable_v2PuhEY-pMvrg1kVDPcFTg_0ls_sqLM';
+  // Formulario -> función submit-lead (verifica Turnstile y luego guarda)
+  const FN_URL='https://zhongioqoiywsenxigxh.supabase.co/functions/v1/submit-lead';
   async function handleContacto(e){
     e.preventDefault();
     const f=e.target;
     if(f.website && f.website.value) return false;
     const btn=document.getElementById('leadBtn'), msg=document.getElementById('leadMsg');
+    const tk=(f.querySelector('[name="cf-turnstile-response"]')||{}).value||'';
+    if(!tk){ msg.textContent='Completa la verificación de seguridad para enviar.'; msg.className='text-sm text-center text-red-400'; return false; }
     const old=btn.textContent; btn.disabled=true; btn.textContent='Enviando…'; msg.className='text-sm text-center hidden';
     try{
-      const r=await fetch(SB_URL+'/rest/v1/leads',{
-        method:'POST',
-        headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+      const r=await fetch(FN_URL,{
+        method:'POST', headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
           nombre:(f.nombre.value||'').trim(),
           negocio:(f.negocio.value||'').trim()||null,
           correo:(f.correo.value||'').trim(),
           mensaje:(f.mensaje.value||'').trim()||null,
-          origen:'restaurantes'
+          origen:'restaurantes', token:tk
         })
       });
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      f.reset();
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok || !j.ok) throw new Error('fail');
+      f.reset(); if(window.turnstile){ try{ turnstile.reset(); }catch(_){ } }
       msg.textContent='¡Listo! Te avisamos en cuanto SPES para Restaurantes esté disponible.';
       msg.className='text-sm text-center text-emerald-400';
     }catch(err){
@@ -295,5 +298,6 @@ tailwind.config = { theme: { extend: {
     resize(); frame();
   })();
 </script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "d80fdf8614cf43c282e7932d81653b3e"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
