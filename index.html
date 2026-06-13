@@ -112,8 +112,18 @@ tailwind.config = {
     </a>
     <div class="hidden md:flex items-center gap-7 text-sm text-white/65">
       <a href="#producto" class="hover:text-white transition">Producto</a>
-      <a href="/pos" class="hover:text-white transition">El POS</a>
-      <a href="/restaurantes" class="hover:text-white transition">Restaurantes</a>
+      <div class="relative group">
+        <button class="hover:text-white transition inline-flex items-center gap-1">Soluciones
+          <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 group-hover:rotate-180 transition" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-3 hidden group-hover:block">
+          <div class="w-72 rounded-xl border border-white/10 bg-black/95 backdrop-blur-xl p-2 shadow-2xl">
+            <a href="/pos" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Tiendas y abarrotes</span><span class="text-[10px] text-emerald-400 border border-emerald-400/30 rounded-full px-2 py-0.5">Disponible</span></a>
+            <a href="/restaurantes" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Restaurantes</span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Acceso anticipado</span></a>
+            <div class="px-3 py-2 mt-1 text-xs text-white/40 border-t border-white/5">Próximamente: Barberías · Cafeterías · Farmacias</div>
+          </div>
+        </div>
+      </div>
       <a href="#planes" class="hover:text-white transition">Planes</a>
       <a href="#faq" class="hover:text-white transition">FAQ</a>
       <a href="#contacto" class="hover:text-white transition">Contacto</a>
@@ -129,8 +139,10 @@ tailwind.config = {
   <div id="navPanel" class="md:hidden hidden border-t border-white/10 bg-black/95 backdrop-blur-xl">
     <div class="px-5 py-3 flex flex-col text-sm">
       <a href="#producto" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Producto</a>
-      <a href="/pos" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">El POS</a>
-      <a href="/restaurantes" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Restaurantes</a>
+      <div class="py-2 text-white/40 text-xs uppercase tracking-wider">Soluciones</div>
+      <a href="/pos" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Tiendas y abarrotes</a>
+      <a href="/restaurantes" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Restaurantes</a>
+      <div class="py-2 pl-3 text-white/40 text-xs border-b border-white/5">Próximamente: Barberías · Cafeterías · Farmacias</div>
       <a href="#planes" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Planes</a>
       <a href="#faq" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">FAQ</a>
       <a href="#contacto" class="py-2.5 text-white/80 hover:text-white">Contacto</a>
