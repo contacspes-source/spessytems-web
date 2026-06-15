@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPES · Panel de Administración</title>
+<style>
+  :root{ color-scheme: light; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; background:#f4f4f5; color:#18181b; }
+  .hidden{ display:none !important; }
+  #login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .card{ background:#fff; border:1px solid #e4e4e7; border-radius:16px; }
+  .loginbox{ width:100%; max-width:360px; padding:32px; text-align:center; }
+  .logo{ width:48px;height:48px;border-radius:12px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:800;font-size:24px;margin:0 auto 14px; }
+  h1{ font-size:18px; font-weight:800; }
+  .muted{ color:#71717a; font-size:13px; }
+  input,select{ width:100%; padding:10px 12px; border:1px solid #d4d4d8; border-radius:9px; font-size:14px; margin-top:10px; background:#fff; }
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{ background:#000; color:#fff; border:0; border-radius:9px; padding:10px 16px; font-weight:700; font-size:14px; }
+  .btn:hover{ opacity:.9; } .btn.sm{ padding:6px 11px; font-size:12px; border-radius:7px; }
+  .btn.ghost{ background:#fff; color:#18181b; border:1px solid #d4d4d8; }
+  .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:#dc2626; } .ok{ color:#16a34a; }
+  header{ background:#000; color:#fff; padding:14px 22px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
+  header .logo{ width:34px;height:34px;font-size:17px;margin:0; }
+  header b{ font-size:15px; font-weight:700; } header .sp{ margin-left:auto; }
+  header button{ background:#1f1f22; color:#fff; border:1px solid #3f3f46; }
+  main{ max-width:1100px; margin:0 auto; padding:22px; }
+  .kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:22px; }
+  @media(max-width:780px){ .kpis{ grid-template-columns:repeat(2,1fr); } }
+  .kpi{ background:#fff; border:1px solid #e4e4e7; border-radius:13px; padding:14px; }
+  .kpi .n{ font-size:26px; font-weight:800; } .kpi .l{ font-size:12px; color:#71717a; margin-top:2px; }
+  .sec{ margin-bottom:26px; }
+  .sechead{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .sechead h2{ font-size:16px; font-weight:800; }
+  table{ width:100%; border-collapse:collapse; background:#fff; border:1px solid #e4e4e7; border-radius:13px; overflow:hidden; font-size:13px; }
+  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#71717a; padding:10px 12px; border-bottom:1px solid #f0f0f1; background:#fafafa; }
+  td{ padding:10px 12px; border-bottom:1px solid #f4f4f5; vertical-align:middle; }
+  tr:last-child td{ border-bottom:0; }
+  .tag{ display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; }
+  .t-activa{ background:#dcfce7; color:#166534; } .t-prueba{ background:#e0e7ff; color:#3730a3; }
+  .t-suspendida{ background:#fee2e2; color:#991b1b; } .t-cancelada{ background:#f4f4f5; color:#52525b; } .t-none{ background:#f4f4f5; color:#52525b; }
+  .t-web{ background:#e0e7ff; color:#3730a3; } .t-restaurantes{ background:#ffedd5; color:#9a3412; }
+  .danger{ color:#dc2626; } .warn{ color:#d97706; }
+  .row-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+  .state{ padding:24px; text-align:center; color:#71717a; }
+  .hint{ font-size:12px; color:#71717a; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card loginbox">
+    <div class="logo">S.</div>
+    <h1>Panel de Administración</h1>
+    <p class="muted">SPES Systems</p>
+    <form id="loginForm">
+      <input id="email" type="email" placeholder="Correo" required autocomplete="username">
+      <input id="password" type="password" placeholder="Contraseña" required autocomplete="current-password">
+      <button class="btn" style="width:100%;margin-top:14px" type="submit">Entrar</button>
+      <p id="loginMsg" class="msg"></p>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <span class="logo">S.</span><b>SPES · Administración</b>
+    <span class="sp"></span>
+    <span class="muted" id="who" style="color:#a1a1aa;font-size:13px"></span>
+    <button class="btn sm" id="logout">Cerrar sesión</button>
+  </header>
+  <main>
+    <div id="notadmin" class="card state hidden" style="margin-bottom:20px">
+      Tu usuario no está autorizado para ver el panel. Pide que te agreguen como administrador.
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="n" id="k-activas">—</div><div class="l">Clientes activos</div></div>
+      <div class="kpi"><div class="n warn" id="k-vencer">—</div><div class="l">Por vencer (7 días)</div></div>
+      <div class="kpi"><div class="n danger" id="k-susp">—</div><div class="l">Vencidas / suspendidas</div></div>
+      <div class="kpi"><div class="n" id="k-mrr">—</div><div class="l">Ingreso mensual (MRR)</div></div>
+      <div class="kpi"><div class="n" id="k-leads">—</div><div class="l">Prospectos</div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sechead"><h2>Clientes (negocios)</h2></div>
+      <p class="hint">Los negocios aparecen aquí cuando crean su cuenta en el POS (con prueba de 14 días). Aquí registras sus pagos y administras su suscripción.</p>
+      <div id="cuentasWrap"><div class="state">Cargando…</div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sechead"><h2>Prospectos</h2></div>
+      <div id="leadsWrap"><div class="state">Cargando…</div></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
+  const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
+  const sb = supabase.createClient(SB_URL, SB_KEY);
+  const PRECIOS = { basico:349, pro:599, multisucursal:999 };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => (s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const money = n => '$'+(Number(n)||0).toLocaleString('es-MX');
+  function addMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
+  function ymd(d){ return new Date(d).toISOString().slice(0,10); }
+  function daysLeft(v){ if(!v) return null; return Math.ceil((new Date(v+'T00:00:00') - new Date(new Date().toDateString()))/86400000); }
+  function fdate(s){ try{ return new Date(s).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}); }catch(e){ return s||'—'; } }
+  const subOf = b => Array.isArray(b.subscriptions) ? (b.subscriptions[0]||null) : (b.subscriptions||null);
+
+  $('loginForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const m=$('loginMsg'); m.textContent='Entrando…'; m.className='msg';
+    const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
+    if(error){ m.textContent='Correo o contraseña incorrectos.'; m.className='msg err'; }
+  });
+  $('logout').addEventListener('click', ()=> sb.auth.signOut());
+  sb.auth.onAuthStateChange((_e, session)=> session ? showApp(session) : showLogin());
+  sb.auth.getSession().then(({data})=> data.session ? showApp(data.session) : showLogin());
+
+  function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
+  async function showApp(session){
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('who').textContent = session.user.email;
+    try { const { data:adminOk } = await sb.rpc('is_admin'); $('notadmin').classList.toggle('hidden', !!adminOk); } catch(_){ }
+    loadData();
+  }
+
+  let NEGOCIOS=[];
+  async function loadData(){
+    try {
+      const bRes = await sb.from('businesses').select('id, business_name, created_at').order('created_at',{ascending:true});
+      if(bRes.error) throw bRes.error;
+      const sRes = await sb.from('subscriptions').select('*');
+      if(sRes.error) throw sRes.error;
+      const lRes = await sb.from('leads').select('*').order('created_at',{ascending:false}).limit(200);
+      const subByB = {};
+      (sRes.data||[]).forEach(s=>{ subByB[s.business_id]=s; });
+      NEGOCIOS = (bRes.data||[]).map(b=>({ ...b, subscriptions: subByB[b.id] ? [subByB[b.id]] : [] }));
+      const leads = lRes.data||[];
+      renderKPIs(NEGOCIOS, leads);
+      renderCuentas(NEGOCIOS);
+      renderLeads(leads);
+    } catch(e){
+      $('cuentasWrap').innerHTML = '<div class="card state" style="color:#dc2626">Error al cargar: '+esc(e.message||String(e))+'</div>';
+      $('leadsWrap').innerHTML = '<div class="card state">—</div>';
+    }
+  }
+
+  function renderKPIs(negs, leads){
+    let activas=0, vencer=0, susp=0, mrr=0;
+    for(const b of negs){
+      const s=subOf(b); if(!s) continue;
+      const dl=daysLeft(s.vence);
+      if(s.estado==='activa'){ activas++; mrr+=PRECIOS[s.plan]||0; }
+      if(['activa','prueba'].includes(s.estado) && dl!=null && dl>=0 && dl<=7) vencer++;
+      if(s.estado==='suspendida' || (dl!=null && dl<0 && s.estado!=='cancelada')) susp++;
+    }
+    $('k-activas').textContent=activas; $('k-vencer').textContent=vencer;
+    $('k-susp').textContent=susp; $('k-mrr').textContent=money(mrr); $('k-leads').textContent=leads.length;
+  }
+
+  function renderCuentas(negs){
+    const wrap=$('cuentasWrap');
+    if(!negs.length){ wrap.innerHTML='<div class="card state">Aún no hay negocios. Aparecerán cuando un cliente cree su cuenta en el POS.</div>'; return; }
+    let h='<table><thead><tr><th>Negocio</th><th>Plan</th><th>Estado</th><th>Vence</th><th>Días</th><th>Acciones</th></tr></thead><tbody>';
+    for(const b of negs){
+      const s=subOf(b);
+      const nombre=esc(b.business_name||'(sin nombre)');
+      const plan=s?esc(s.plan):'—';
+      const estado=s?s.estado:'none';
+      const dl=s?daysLeft(s.vence):null;
+      const dtxt = dl==null?'—':(dl<0?'<span class="danger">vencida</span>':(dl<=7?'<span class="warn">'+dl+' d</span>':dl+' d'));
+      h+='<tr>'
+        +'<td><strong>'+nombre+'</strong></td>'
+        +'<td>'+plan+(s?'<br><span class="muted">'+money(PRECIOS[s.plan]||0)+'/mes</span>':'')+'</td>'
+        +'<td><span class="tag t-'+esc(estado)+'">'+esc(estado==='none'?'sin suscripción':estado)+'</span></td>'
+        +'<td>'+(s?fdate(s.vence):'—')+'</td>'
+        +'<td>'+dtxt+'</td>'
+        +'<td><div class="row-actions">'
+          +'<button class="btn sm" data-pago="'+b.id+'">Pago</button>'
+          +(estado==='suspendida'
+              ? '<button class="btn sm ghost" data-act="'+b.id+'" data-to="activa">Activar</button>'
+              : '<button class="btn sm ghost" data-act="'+b.id+'" data-to="suspendida">Suspender</button>')
+        +'</div></td>'
+        +'</tr>';
+    }
+    h+='</tbody></table>';
+    wrap.innerHTML=h;
+  }
+
+  function renderLeads(leads){
+    const wrap=$('leadsWrap');
+    if(!leads.length){ wrap.innerHTML='<div class="card state">Aún no hay prospectos.</div>'; return; }
+    let h='<table><thead><tr><th>Nombre</th><th>Negocio</th><th>Correo</th><th>Giro</th><th>Fecha</th></tr></thead><tbody>';
+    for(const r of leads){
+      h+='<tr>'
+        +'<td><strong>'+esc(r.nombre)+'</strong>'+(r.mensaje?'<br><span class="muted">'+esc(r.mensaje)+'</span>':'')+'</td>'
+        +'<td>'+esc(r.negocio||'—')+'</td>'
+        +'<td><a href="mailto:'+esc(r.correo)+'">'+esc(r.correo)+'</a></td>'
+        +'<td><span class="tag t-'+(r.origen==='restaurantes'?'restaurantes':'web')+'">'+(r.origen==='restaurantes'?'Restaurante':'Tienda')+'</span></td>'
+        +'<td class="muted">'+fdate(r.created_at)+'</td>'
+        +'</tr>';
+    }
+    h+='</tbody></table>'; wrap.innerHTML=h;
+  }
+
+  $('cuentasWrap').addEventListener('click', async e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    if(b.dataset.pago) await registrarPago(b.dataset.pago);
+    else if(b.dataset.act) await cambiarEstado(b.dataset.act, b.dataset.to);
+  });
+
+  async function registrarPago(bid){
+    const b=NEGOCIOS.find(x=>x.id===bid); if(!b) return;
+    const s=subOf(b);
+    let plan = s?s.plan:'basico';
+    const planIn=(prompt('Plan (basico/pro/multisucursal):', plan)||plan).toLowerCase();
+    if(PRECIOS[planIn]) plan=planIn;
+    const meses=parseInt(prompt('¿Cuántos meses paga '+(b.business_name||'el negocio')+'?','1'));
+    if(!meses||meses<1) return;
+    const metodo=(prompt('Método: transferencia / efectivo / mercadopago','transferencia')||'otro').toLowerCase();
+    const m=['transferencia','efectivo','mercadopago'].includes(metodo)?metodo:'otro';
+    const base=(s && s.vence && new Date(s.vence)>new Date()) ? new Date(s.vence) : new Date();
+    const cubre=ymd(addMonths(base,meses));
+    const monto=(PRECIOS[plan]||0)*meses;
+    const p=await sb.from('pagos').insert({business_id:bid, monto, metodo:m, cubre_hasta:cubre, nota:meses+' mes(es) · '+plan});
+    if(p.error){ alert('No se pudo registrar el pago: '+p.error.message); return; }
+    const u=await sb.from('subscriptions').update({plan, estado:'activa', vence:cubre, updated_at:new Date().toISOString()}).eq('business_id', bid);
+    if(u.error){ alert('Pago guardado, pero no se pudo actualizar la suscripción: '+u.error.message); }
+    await loadData();
+  }
+
+  async function cambiarEstado(bid, to){
+    if(to==='suspendida' && !confirm('¿Suspender esta cuenta? El POS le pedirá renovar.')) return;
+    const { error }=await sb.from('subscriptions').update({estado:to, updated_at:new Date().toISOString()}).eq('business_id', bid);
+    if(error){ alert('No se pudo cambiar el estado: '+error.message); return; }
+    await loadData();
+  }
+</script>
+</body>
+</html>
