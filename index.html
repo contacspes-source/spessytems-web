@@ -347,7 +347,7 @@ tailwind.config = {
   <div class="relative z-10 max-w-3xl mx-auto px-5 text-center">
     <p class="text-smoke text-xs tracking-[0.3em] uppercase mb-5 mono">Cuida lo que importa</p>
     <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-snug">
-      Tu inventario no tiene por qué<br class="hidden sm:block"> fragmentarse como el <span class="shimmer">cristal</span>.
+      Tu inventario no tiene por qué<br class="hidden sm:block"> fragmentarse como un <span class="shimmer">cristal</span>.
     </h2>
     <p class="mt-5 text-white/60 max-w-xl mx-auto">Cada entrada, salida y merma en su lugar. Control entero, sin piezas rotas ni cuentas que no cuadran.</p>
   </div>
@@ -359,36 +359,46 @@ tailwind.config = {
     var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var w,h,dpr,shards=[],raf;
     function resize(){ dpr=Math.min(window.devicePixelRatio||1,2); w=cv.width=sec.offsetWidth*dpr; h=cv.height=sec.offsetHeight*dpr; }
-    function makeShard(x,y){
-      var n=3+(Math.random()*3|0), rot=Math.random()*6.283, size=(14+Math.random()*26)*dpr, pts=[];
-      for(var i=0;i<n;i++){ var a=rot+i/n*6.283+Math.random()*0.5, r=size*(0.5+Math.random()*0.6); pts.push([x+Math.cos(a)*r, y+Math.sin(a)*r]); }
-      return {pts:pts, life:1, decay:0.012+Math.random()*0.02, scale:0};
+    function makeImpact(x,y,big){
+      var spokes=6+(Math.random()*5|0), reach=(big?90:42)+Math.random()*(big?90:60), cracks=[], ring=[];
+      for(var i=0;i<spokes;i++){
+        var a=i/spokes*6.283+Math.random()*0.4, len=reach*(0.6+Math.random()*0.8)*dpr;
+        var pts=[[x,y]], px=x, py=y, steps=3+(Math.random()*2|0), seg=len/steps;
+        for(var s=1;s<=steps;s++){ a+=(Math.random()-0.5)*0.6; px+=Math.cos(a)*seg; py+=Math.sin(a)*seg; pts.push([px,py]); if(s===1) ring.push([px,py]); }
+        cracks.push(pts);
+      }
+      return {x:x, y:y, cracks:cracks, ring:ring, life:1, decay:0.014+Math.random()*0.016, grow:0};
     }
-    function add(x,y){
-      var cx=x*dpr, cy=y*dpr, k=2+(Math.random()*2|0);
-      for(var i=0;i<k;i++) shards.push(makeShard(cx+(Math.random()-0.5)*30*dpr, cy+(Math.random()-0.5)*30*dpr));
-      if(shards.length>120) shards.splice(0, shards.length-120);
+    function add(x,y,big){
+      shards.push(makeImpact(x*dpr, y*dpr, big));
+      if(shards.length>34) shards.splice(0, shards.length-34);
     }
     function frame(){
-      ctx.clearRect(0,0,w,h);
+      ctx.clearRect(0,0,w,h); ctx.lineCap='round';
       for(var j=0;j<shards.length;j++){
-        var s=shards[j]; s.life-=s.decay; if(s.scale<1) s.scale+=0.18; if(s.life<=0) continue;
-        var al=Math.max(0,s.life), cx=0, cy=0, p;
-        for(p=0;p<s.pts.length;p++){ cx+=s.pts[p][0]; cy+=s.pts[p][1]; }
-        cx/=s.pts.length; cy/=s.pts.length;
-        ctx.beginPath();
-        for(p=0;p<s.pts.length;p++){ var sx=cx+(s.pts[p][0]-cx)*s.scale, sy=cy+(s.pts[p][1]-cy)*s.scale; p?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy); }
-        ctx.closePath();
-        ctx.fillStyle='rgba(255,255,255,'+(al*0.06)+')'; ctx.fill();
-        ctx.lineWidth=Math.max(1,dpr*0.8); ctx.strokeStyle='rgba(255,255,255,'+(al*0.5)+')'; ctx.stroke();
+        var s=shards[j]; s.life-=s.decay; if(s.grow<1) s.grow+=0.28; if(s.life<=0) continue;
+        var al=Math.max(0,s.life), g=s.grow<1?s.grow:1, k, p, pts, sx, sy;
+        for(k=0;k<s.cracks.length;k++){
+          pts=s.cracks[k]; ctx.beginPath();
+          for(p=0;p<pts.length;p++){ sx=s.x+(pts[p][0]-s.x)*g; sy=s.y+(pts[p][1]-s.y)*g; p?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy); }
+          ctx.lineWidth=Math.max(1,dpr*0.9); ctx.strokeStyle='rgba(255,255,255,'+(al*0.55)+')'; ctx.stroke();
+        }
+        if(s.ring.length>2){
+          ctx.beginPath();
+          for(p=0;p<s.ring.length;p++){ sx=s.x+(s.ring[p][0]-s.x)*g; sy=s.y+(s.ring[p][1]-s.y)*g; p?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy); }
+          ctx.closePath(); ctx.lineWidth=Math.max(1,dpr*0.7); ctx.strokeStyle='rgba(255,255,255,'+(al*0.28)+')'; ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(s.x,s.y,dpr*1.6,0,6.2832); ctx.fillStyle='rgba(255,255,255,'+(al*0.8)+')'; ctx.fill();
       }
       shards=shards.filter(function(s){return s.life>0;});
       raf=requestAnimationFrame(frame);
     }
+    var lx=-999, ly=-999;
     resize(); window.addEventListener('resize',resize);
     if(!reduce){
-      sec.addEventListener('mousemove',function(e){ var r=sec.getBoundingClientRect(); add(e.clientX-r.left, e.clientY-r.top); },{passive:true});
-      sec.addEventListener('touchmove',function(e){ var r=sec.getBoundingClientRect(), t=e.touches[0]; if(t) add(t.clientX-r.left, t.clientY-r.top); },{passive:true});
+      sec.addEventListener('mousemove',function(e){ var r=sec.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top; if((x-lx)*(x-lx)+(y-ly)*(y-ly)>1600){ lx=x; ly=y; add(x,y,false); } },{passive:true});
+      sec.addEventListener('click',function(e){ var r=sec.getBoundingClientRect(); add(e.clientX-r.left, e.clientY-r.top, true); });
+      sec.addEventListener('touchmove',function(e){ var r=sec.getBoundingClientRect(), t=e.touches[0]; if(t){ var x=t.clientX-r.left, y=t.clientY-r.top; if((x-lx)*(x-lx)+(y-ly)*(y-ly)>1600){ lx=x; ly=y; add(x,y,false); } } },{passive:true});
       frame();
     }
   })();
