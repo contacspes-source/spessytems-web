@@ -121,6 +121,9 @@ tailwind.config = {
           <div class="w-72 rounded-xl border border-white/10 bg-black/95 backdrop-blur-xl p-2 shadow-2xl">
             <a href="/pos" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Tiendas y abarrotes</span><span class="text-[10px] text-emerald-400 border border-emerald-400/30 rounded-full px-2 py-0.5">Disponible</span></a>
             <a href="/restaurantes" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Restaurantes</span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Acceso anticipado</span></a>
+            <a href="#contacto" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Gimnasios</span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Próximamente</span></a>
+            <div class="h-px bg-white/10 my-1.5 mx-2"></div>
+            <a href="#contacto" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white leading-tight">Landing pages y marketing<br><span class="text-[11px] text-white/40">Servicio complementario</span></span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5 shrink-0">Servicio</span></a>
           </div>
         </div>
       </div>
@@ -142,6 +145,8 @@ tailwind.config = {
       <div class="py-2 text-white/40 text-xs uppercase tracking-wider">Soluciones</div>
       <a href="/pos" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Tiendas y abarrotes</a>
       <a href="/restaurantes" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Restaurantes</a>
+      <a href="#contacto" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Gimnasios <span class="text-[10px] text-white/40">Próximamente</span></a>
+      <a href="#contacto" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Landing pages y marketing <span class="text-[10px] text-white/40">Servicio</span></a>
       <a href="#planes" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Planes</a>
       <a href="#faq" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">FAQ</a>
       <a href="#contacto" class="py-2.5 text-white/80 hover:text-white">Contacto</a>
@@ -159,8 +164,7 @@ tailwind.config = {
     <div>
       <span class="inline-flex items-center gap-2 text-xs font-medium text-smoke border border-white/15 rounded-full px-3 py-1 mb-7 backdrop-blur">
         <span class="w-1.5 h-1.5 rounded-full bg-white pulse-dot"></span>
-        <span class="mono">v1.0</span> · Lanzamiento Julio 2026 · Hecho en México
-        <svg viewBox="0 0 18 12" class="w-4 h-3 rounded-sm overflow-hidden"><rect width="6" height="12" x="0" fill="#0b6e4f"/><rect width="6" height="12" x="6" fill="#f5f5f5"/><rect width="6" height="12" x="12" fill="#b3392f"/></svg>
+        Punto de venta + automatización con IA
       </span>
       <h1 class="text-[2.5rem] leading-[1.1] sm:text-6xl lg:text-7xl font-extrabold leading-[1.04] tracking-tight">
         Control inteligente<br>para <span class="shimmer">tu negocio.</span>
@@ -378,6 +382,40 @@ tailwind.config = {
         <a href="#contacto" class="mt-7 text-center border border-white/25 rounded-full py-2.5 font-semibold hover:bg-white/10 transition">Cotizar</a>
       </div>
     </div>
+
+    <!-- ADD-ON IA -->
+    <div class="mt-7 fade-up p-9 sm:p-11 rounded-2xl border-2 border-white bg-white/[0.05] text-center glow relative">
+      <div class="w-14 h-14 mx-auto mb-5 rounded-2xl border border-white/25 flex items-center justify-center text-white">
+        <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/><rect x="4" y="8" width="16" height="12" rx="2"/></svg>
+      </div>
+      <span class="inline-block bg-white text-ink text-xs font-bold px-3 py-1 rounded-full mb-4">Add-on premium</span>
+      <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Automatizaciones con agentes de IA</h3>
+      <p class="mt-3 text-white/70 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">Atención por WhatsApp, seguimiento a clientes y reportes automáticos. Lo último en IA, configurado para tu negocio.</p>
+      <div class="mono text-sm text-white/60 mt-5 mb-6">Precio según alcance · cotización a tu medida</div>
+      <a href="#contacto" class="inline-block bg-white text-ink font-semibold px-8 py-3 rounded-full hover:scale-105 transition">Cotizar automatización</a>
+    </div>
+
+    <!-- INCLUIDO EN TODOS LOS PLANES -->
+    <div class="mt-5 fade-up p-8 rounded-2xl border border-white/10">
+      <p class="text-center mono text-[11px] tracking-[0.2em] uppercase text-white/45 mb-6">Incluido en todos los planes</p>
+      <div class="grid sm:grid-cols-2 gap-7">
+        <div class="text-center">
+          <div class="w-12 h-12 mx-auto mb-3.5 rounded-2xl border border-white/15 flex items-center justify-center text-white">
+            <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <div class="font-bold">Manual a la medida</div>
+          <div class="text-sm text-white/55 mt-1 leading-relaxed">De tu giro: gimnasio, tienda o restaurante.</div>
+        </div>
+        <div class="text-center">
+          <div class="w-12 h-12 mx-auto mb-3.5 rounded-2xl border border-white/15 flex items-center justify-center text-white">
+            <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          </div>
+          <div class="font-bold">Asesoría incluida</div>
+          <div class="text-sm text-white/55 mt-1 leading-relaxed">Acompañamiento para arrancar y aprovecharlo.</div>
+        </div>
+      </div>
+    </div>
+
     <p class="text-center text-xs text-white/40 mt-8">Precios en MXN, sin IVA. Incluye actualizaciones y soporte en español. ¿Prefieres pago único? <a href="#contacto" class="underline hover:text-white">Pregúntanos</a>.</p>
   </div>
 </section>
@@ -388,7 +426,7 @@ tailwind.config = {
   <div class="max-w-3xl mx-auto px-5 text-center fade-up relative z-10">
     <span class="logo-S text-6xl font-black text-white">S<span class="text-smoke">.</span></span>
     <h2 class="mt-6 text-3xl sm:text-5xl font-extrabold tracking-tight">Lleva el control de tu negocio</h2>
-    <p class="mt-4 text-white/65 max-w-xl mx-auto">SPES POS para Windows llega en <span class="text-white font-medium">julio 2026</span>. Déjanos tu correo y serás de los primeros en descargarlo — con demo gratis.</p>
+    <p class="mt-4 text-white/65 max-w-xl mx-auto">SPES POS para Windows. Déjanos tu correo y serás de los primeros en descargarlo — con demo gratis.</p>
     <div class="mt-9 flex flex-wrap justify-center gap-4">
       <a href="#contacto" class="bg-white text-ink font-semibold px-8 py-3.5 rounded-full hover:scale-105 transition glow">Avísame del lanzamiento</a>
       <span class="inline-flex items-center gap-2 border border-white/15 text-white/60 font-medium px-6 py-3.5 rounded-full">
@@ -410,7 +448,7 @@ tailwind.config = {
     <div class="space-y-3">
       <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
         <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Para qué tipo de negocios sirve SPES POS?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
-        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">Está pensado para fruterías, abarrotes, minisúper y tiendas similares. Próximamente tendremos variantes para restaurantes, barberías y más giros.</div>
+        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">Está pensado para fruterías, abarrotes, minisúper y tiendas similares. Próximamente tendremos variantes para restaurantes, gimnasios y más giros.</div>
       </details>
       <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
         <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Funciona sin internet?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
@@ -436,7 +474,7 @@ tailwind.config = {
   </div>
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-    {"@type":"Question","name":"¿Para qué tipo de negocios sirve SPES POS?","acceptedAnswer":{"@type":"Answer","text":"Está pensado para fruterías, abarrotes, minisúper y tiendas similares. Próximamente tendremos variantes para restaurantes, barberías y más giros."}},
+    {"@type":"Question","name":"¿Para qué tipo de negocios sirve SPES POS?","acceptedAnswer":{"@type":"Answer","text":"Está pensado para fruterías, abarrotes, minisúper y tiendas similares. Próximamente tendremos variantes para restaurantes, gimnasios y más giros."}},
     {"@type":"Question","name":"¿Funciona sin internet?","acceptedAnswer":{"@type":"Answer","text":"Sí. SPES POS es una aplicación de escritorio que corre en tu equipo, así que puedes vender aunque se caiga el internet."}},
     {"@type":"Question","name":"¿Necesito comprar hardware nuevo?","acceptedAnswer":{"@type":"Answer","text":"No necesariamente. Funciona con el equipo que ya tengas, y si quieres te armamos un kit completo con impresora, lector y cajón de dinero."}},
     {"@type":"Question","name":"¿Cuánto cuesta?","acceptedAnswer":{"@type":"Answer","text":"Estamos por anunciar los planes. Los primeros clientes tendrán condiciones especiales. Escríbenos para los detalles."}},
@@ -483,7 +521,7 @@ tailwind.config = {
       <a href="mailto:contacspes@gmail.com" class="hover:text-white transition">Contacto</a>
     </div>
   </div>
-  <div class="max-w-6xl mx-auto px-5 mt-8 text-center text-xs text-white/30 mono">© 2026 SPES Systems · Hecho en México · spessystems.com</div>
+  <div class="max-w-6xl mx-auto px-5 mt-8 text-center text-xs text-white/30 mono">© 2026 SPES Systems · spessystems.com</div>
 </footer>
 
 <script>
