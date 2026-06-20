@@ -341,6 +341,60 @@ tailwind.config = {
   </div>
 </section>
 
+<!-- FRASE / CRISTAL -->
+<section id="cristal" class="relative py-20 sm:py-28 overflow-hidden border-y border-white/10">
+  <canvas id="cristalCanvas" aria-hidden="true" class="absolute inset-0 w-full h-full" style="z-index:0; pointer-events:none;"></canvas>
+  <div class="relative z-10 max-w-3xl mx-auto px-5 text-center">
+    <p class="text-smoke text-xs tracking-[0.3em] uppercase mb-5 mono">Cuida lo que importa</p>
+    <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-snug">
+      Tu inventario no tiene por qué<br class="hidden sm:block"> fragmentarse como el <span class="shimmer">cristal</span>.
+    </h2>
+    <p class="mt-5 text-white/60 max-w-xl mx-auto">Cada entrada, salida y merma en su lugar. Control entero, sin piezas rotas ni cuentas que no cuadran.</p>
+  </div>
+  <script>
+  (function(){
+    var sec=document.getElementById('cristal'), cv=document.getElementById('cristalCanvas');
+    if(!sec||!cv) return;
+    var ctx=cv.getContext('2d');
+    var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var w,h,dpr,shards=[],raf;
+    function resize(){ dpr=Math.min(window.devicePixelRatio||1,2); w=cv.width=sec.offsetWidth*dpr; h=cv.height=sec.offsetHeight*dpr; }
+    function makeShard(x,y){
+      var n=3+(Math.random()*3|0), rot=Math.random()*6.283, size=(14+Math.random()*26)*dpr, pts=[];
+      for(var i=0;i<n;i++){ var a=rot+i/n*6.283+Math.random()*0.5, r=size*(0.5+Math.random()*0.6); pts.push([x+Math.cos(a)*r, y+Math.sin(a)*r]); }
+      return {pts:pts, life:1, decay:0.012+Math.random()*0.02, scale:0};
+    }
+    function add(x,y){
+      var cx=x*dpr, cy=y*dpr, k=2+(Math.random()*2|0);
+      for(var i=0;i<k;i++) shards.push(makeShard(cx+(Math.random()-0.5)*30*dpr, cy+(Math.random()-0.5)*30*dpr));
+      if(shards.length>120) shards.splice(0, shards.length-120);
+    }
+    function frame(){
+      ctx.clearRect(0,0,w,h);
+      for(var j=0;j<shards.length;j++){
+        var s=shards[j]; s.life-=s.decay; if(s.scale<1) s.scale+=0.18; if(s.life<=0) continue;
+        var al=Math.max(0,s.life), cx=0, cy=0, p;
+        for(p=0;p<s.pts.length;p++){ cx+=s.pts[p][0]; cy+=s.pts[p][1]; }
+        cx/=s.pts.length; cy/=s.pts.length;
+        ctx.beginPath();
+        for(p=0;p<s.pts.length;p++){ var sx=cx+(s.pts[p][0]-cx)*s.scale, sy=cy+(s.pts[p][1]-cy)*s.scale; p?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy); }
+        ctx.closePath();
+        ctx.fillStyle='rgba(255,255,255,'+(al*0.06)+')'; ctx.fill();
+        ctx.lineWidth=Math.max(1,dpr*0.8); ctx.strokeStyle='rgba(255,255,255,'+(al*0.5)+')'; ctx.stroke();
+      }
+      shards=shards.filter(function(s){return s.life>0;});
+      raf=requestAnimationFrame(frame);
+    }
+    resize(); window.addEventListener('resize',resize);
+    if(!reduce){
+      sec.addEventListener('mousemove',function(e){ var r=sec.getBoundingClientRect(); add(e.clientX-r.left, e.clientY-r.top); },{passive:true});
+      sec.addEventListener('touchmove',function(e){ var r=sec.getBoundingClientRect(), t=e.touches[0]; if(t) add(t.clientX-r.left, t.clientY-r.top); },{passive:true});
+      frame();
+    }
+  })();
+  </script>
+</section>
+
 <!-- PLANES -->
 <section id="planes" class="py-14 sm:py-24">
   <div class="max-w-6xl mx-auto px-5">
