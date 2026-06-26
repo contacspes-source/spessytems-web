@@ -691,13 +691,17 @@ tailwind.config = {
         })
       });
       const j=await r.json().catch(()=>({}));
+      if(r.status===429) throw new Error('rate');
       if(!r.ok || !j.ok) throw new Error('fail');
       f.reset(); if(window.turnstile){ try{ turnstile.reset(); }catch(_){ } }
       msg.textContent='¡Listo! Recibimos tu mensaje. Te contactamos muy pronto.';
       msg.className='text-sm text-center text-emerald-400';
     }catch(err){
-      msg.textContent='Hubo un problema al enviar. Escríbenos directo a contacspes@gmail.com';
+      msg.textContent=(err && err.message==='rate')
+        ? 'Has enviado varios mensajes seguidos. Espera unos minutos antes de intentar de nuevo.'
+        : 'Hubo un problema al enviar. Escríbenos directo a contacspes@gmail.com';
       msg.className='text-sm text-center text-red-400';
+      if(window.turnstile){ try{ turnstile.reset(); }catch(_){ } }
     }finally{
       btn.disabled=false; btn.textContent=old;
     }
