@@ -46,9 +46,16 @@
   .row-actions{ display:flex; gap:6px; flex-wrap:wrap; }
   .state{ padding:24px; text-align:center; color:#71717a; }
   .hint{ font-size:12px; color:#71717a; margin-bottom:10px; }
+  #filebanner{ background:#fef2f2; color:#991b1b; border-bottom:1px solid #fecaca; padding:12px 18px; font-size:13px; text-align:center; }
+  #filebanner code{ background:#fff; padding:1px 6px; border-radius:5px; border:1px solid #fecaca; }
 </style>
 </head>
 <body>
+
+<div id="filebanner" class="hidden">
+  Abriste el panel como archivo local, y así el inicio de sesión no funciona.
+  Súbelo a tu sitio y ábrelo en <code>https://spessystems.com/admin.html</code>.
+</div>
 
 <div id="login">
   <div class="card loginbox">
@@ -73,38 +80,55 @@
   </header>
   <main>
     <div id="notadmin" class="card state hidden" style="margin-bottom:20px">
-      Tu usuario no está autorizado para ver el panel. Pide que te agreguen como administrador.
+      Esta cuenta (<b id="na-email"></b>) no está autorizada para el panel.
+      Entra con tu cuenta de administrador, o pide que te agreguen.
     </div>
-    <div class="kpis">
-      <div class="kpi"><div class="n" id="k-activas">—</div><div class="l">Clientes activos</div></div>
-      <div class="kpi"><div class="n warn" id="k-vencer">—</div><div class="l">Por vencer (7 días)</div></div>
-      <div class="kpi"><div class="n danger" id="k-susp">—</div><div class="l">Vencidas / suspendidas</div></div>
-      <div class="kpi"><div class="n" id="k-mrr">—</div><div class="l">Ingreso mensual (MRR)</div></div>
-      <div class="kpi"><div class="n" id="k-leads">—</div><div class="l">Prospectos</div></div>
-    </div>
+    <div id="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="n" id="k-activas">—</div><div class="l">Clientes activos</div></div>
+        <div class="kpi"><div class="n warn" id="k-vencer">—</div><div class="l">Por vencer (7 días)</div></div>
+        <div class="kpi"><div class="n danger" id="k-susp">—</div><div class="l">Vencidas / suspendidas</div></div>
+        <div class="kpi"><div class="n" id="k-mrr">—</div><div class="l">Ingreso mensual (MRR)</div></div>
+        <div class="kpi"><div class="n" id="k-leads">—</div><div class="l">Prospectos</div></div>
+      </div>
 
-    <div class="sec">
-      <div class="sechead"><h2>Clientes (negocios)</h2></div>
-      <p class="hint">Los negocios aparecen aquí cuando crean su cuenta en el POS (con prueba de 14 días). Aquí registras sus pagos y administras su suscripción.</p>
-      <div id="cuentasWrap"><div class="state">Cargando…</div></div>
-    </div>
+      <div class="sec">
+        <div class="sechead"><h2>Clientes (negocios)</h2></div>
+        <p class="hint">Los negocios aparecen aquí cuando crean su cuenta en el POS (con prueba de 14 días). Aquí registras sus pagos y administras su suscripción.</p>
+        <div id="cuentasWrap"><div class="state">Cargando…</div></div>
+      </div>
 
-    <div class="sec">
-      <div class="sechead"><h2>Prospectos</h2></div>
-      <div id="leadsWrap"><div class="state">Cargando…</div></div>
+      <div class="sec">
+        <div class="sechead"><h2>Prospectos</h2></div>
+        <div id="leadsWrap"><div class="state">Cargando…</div></div>
+      </div>
     </div>
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
-  const sb = supabase.createClient(SB_URL, SB_KEY);
   const PRECIOS = { basico:349, pro:599, multisucursal:999 };
 
+  // Aviso si se abrió como archivo local (file://): el login no funcionará.
+  if(location.protocol==='file:') document.getElementById('filebanner').classList.remove('hidden');
+
+  // Almacenamiento seguro: en contextos restringidos localStorage puede fallar;
+  // caemos a memoria para no romper el inicio de sesión.
+  const memStore={};
+  const safeStorage={
+    getItem:k=>{ try{ return window.localStorage.getItem(k); }catch(_){ return (k in memStore)?memStore[k]:null; } },
+    setItem:(k,v)=>{ try{ window.localStorage.setItem(k,v); }catch(_){ memStore[k]=String(v); } },
+    removeItem:k=>{ try{ window.localStorage.removeItem(k); }catch(_){ delete memStore[k]; } }
+  };
+  const sb = supabase.createClient(SB_URL, SB_KEY, {
+    auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:false, storage:safeStorage }
+  });
+
   const $ = id => document.getElementById(id);
-  const esc = s => (s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const esc = s => (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = n => '$'+(Number(n)||0).toLocaleString('es-MX');
   function addMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
   function ymd(d){ return new Date(d).toISOString().slice(0,10); }
@@ -112,22 +136,38 @@
   function fdate(s){ try{ return new Date(s).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}); }catch(e){ return s||'—'; } }
   const subOf = b => Array.isArray(b.subscriptions) ? (b.subscriptions[0]||null) : (b.subscriptions||null);
 
+  function traducirAuth(msg){
+    const m=(msg||'').toLowerCase();
+    if(m.includes('invalid login credentials')) return 'Correo o contraseña incorrectos.';
+    if(m.includes('email not confirmed')) return 'Tu correo aún no está confirmado.';
+    if(m.includes('failed to fetch')||m.includes('network')) return 'Sin conexión con el servidor. Revisa tu internet o ábrelo en https://spessystems.com/admin.html';
+    return msg || 'No se pudo iniciar sesión.';
+  }
+
   $('loginForm').addEventListener('submit', async e=>{
     e.preventDefault();
     const m=$('loginMsg'); m.textContent='Entrando…'; m.className='msg';
-    const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
-    if(error){ m.textContent='Correo o contraseña incorrectos.'; m.className='msg err'; }
+    try{
+      const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
+      if(error){ m.textContent=traducirAuth(error.message); m.className='msg err'; }
+    }catch(err){ m.textContent=traducirAuth(err && err.message); m.className='msg err'; }
   });
   $('logout').addEventListener('click', ()=> sb.auth.signOut());
   sb.auth.onAuthStateChange((_e, session)=> session ? showApp(session) : showLogin());
   sb.auth.getSession().then(({data})=> data.session ? showApp(data.session) : showLogin());
 
   function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
+
   async function showApp(session){
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     $('who').textContent = session.user.email;
-    try { const { data:adminOk } = await sb.rpc('is_admin'); $('notadmin').classList.toggle('hidden', !!adminOk); } catch(_){ }
-    loadData();
+    $('na-email').textContent = session.user.email;
+    // ¿Es admin? Si no, mostramos aviso claro y no intentamos cargar (RLS lo bloquearía).
+    let isAdmin=false;
+    try{ const { data:adminOk } = await sb.rpc('is_admin'); isAdmin=!!adminOk; }catch(_){ isAdmin=false; }
+    $('notadmin').classList.toggle('hidden', isAdmin);
+    $('panel').classList.toggle('hidden', !isAdmin);
+    if(isAdmin) loadData();
   }
 
   let NEGOCIOS=[];
@@ -201,7 +241,7 @@
       h+='<tr>'
         +'<td><strong>'+esc(r.nombre)+'</strong>'+(r.mensaje?'<br><span class="muted">'+esc(r.mensaje)+'</span>':'')+'</td>'
         +'<td>'+esc(r.negocio||'—')+'</td>'
-        +'<td><a href="mailto:'+esc(r.correo)+'">'+esc(r.correo)+'</a></td>'
+        +'<td><a href="mailto:'+encodeURIComponent(r.correo||'')+'">'+esc(r.correo)+'</a></td>'
         +'<td><span class="tag t-'+(r.origen==='restaurantes'?'restaurantes':'web')+'">'+(r.origen==='restaurantes'?'Restaurante':'Tienda')+'</span></td>'
         +'<td class="muted">'+fdate(r.created_at)+'</td>'
         +'</tr>';
@@ -230,15 +270,18 @@
     const monto=(PRECIOS[plan]||0)*meses;
     const p=await sb.from('pagos').insert({business_id:bid, monto, metodo:m, cubre_hasta:cubre, nota:meses+' mes(es) · '+plan});
     if(p.error){ alert('No se pudo registrar el pago: '+p.error.message); return; }
-    const u=await sb.from('subscriptions').update({plan, estado:'activa', vence:cubre, updated_at:new Date().toISOString()}).eq('business_id', bid);
+    // Actualizamos la suscripción; .select() nos confirma que sí cambió (si RLS bloqueara, vendría vacío).
+    const u=await sb.from('subscriptions').update({plan, estado:'activa', vence:cubre, updated_at:new Date().toISOString()}).eq('business_id', bid).select();
     if(u.error){ alert('Pago guardado, pero no se pudo actualizar la suscripción: '+u.error.message); }
+    else if(!u.data || !u.data.length){ alert('Pago guardado, pero la suscripción no cambió (¿permisos o sin suscripción para este negocio?).'); }
     await loadData();
   }
 
   async function cambiarEstado(bid, to){
     if(to==='suspendida' && !confirm('¿Suspender esta cuenta? El POS le pedirá renovar.')) return;
-    const { error }=await sb.from('subscriptions').update({estado:to, updated_at:new Date().toISOString()}).eq('business_id', bid);
-    if(error){ alert('No se pudo cambiar el estado: '+error.message); return; }
+    const u=await sb.from('subscriptions').update({estado:to, updated_at:new Date().toISOString()}).eq('business_id', bid).select();
+    if(u.error){ alert('No se pudo cambiar el estado: '+u.error.message); return; }
+    if(!u.data || !u.data.length){ alert('No cambió nada (¿permisos o este negocio no tiene suscripción?).'); }
     await loadData();
   }
 </script>
