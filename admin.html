@@ -138,6 +138,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
@@ -163,7 +164,9 @@
   function fdate(s){ try{ return new Date(s).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}); }catch(e){ return s||'—'; } }
   function fdatetime(s){ try{ return new Date(s).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return s||'—'; } }
   const subOf = b => Array.isArray(b.subscriptions) ? (b.subscriptions[0]||null) : (b.subscriptions||null);
-  const precioDe = s => s ? (s.precio_mxn!=null ? Number(s.precio_mxn) : (PRECIOS[s.plan]||0)) : 0;
+  function planPrecio(clave){ const p=ST.PLANES.find(x=>x.clave===clave); return p?Number(p.precio_mxn):(PRECIOS[clave]||0); }
+  const precioDe = s => s ? (s.precio_mxn!=null ? Number(s.precio_mxn) : planPrecio(s.plan)) : 0;
+  const clavesPlan = () => ST.PLANES.length ? ST.PLANES.map(p=>p.clave).join('/') : 'basico/pro/multisucursal';
 
   function traducirAuth(msg){
     const m=(msg||'').toLowerCase();
@@ -208,12 +211,12 @@
 
   // ---------- STATE ----------
   const ST = { view:'dashboard', clienteId:null, isPrincipal:false, email:'',
-    NEGOCIOS:[], LEADS:[], PAGOS:[], ADMINS:[], VERSIONES:[], NOTAS:[] };
+    NEGOCIOS:[], LEADS:[], PAGOS:[], ADMINS:[], VERSIONES:[], NOTAS:[], PLANES:[] };
 
   const NAV = [
     { items:[ {id:'dashboard',label:'Dashboard'} ] },
     { group:'CRM', items:[ {id:'prospectos',label:'Prospectos'},{id:'clientes',label:'Clientes'},{id:'mensajes',label:'Mensajes'},{id:'empresas',label:'Empresas',soon:1},{id:'contactos',label:'Contactos',soon:1} ] },
-    { group:'Suscripciones', items:[ {id:'planes',label:'Planes',soon:1},{id:'membresias',label:'Membresías',soon:1},{id:'facturacion',label:'Facturación',soon:1},{id:'pagos',label:'Pagos'},{id:'renovaciones',label:'Renovaciones'} ] },
+    { group:'Suscripciones', items:[ {id:'planes',label:'Planes'},{id:'membresias',label:'Membresías',soon:1},{id:'facturacion',label:'Facturación'},{id:'pagos',label:'Pagos'},{id:'renovaciones',label:'Renovaciones'} ] },
     { group:'Soporte', items:[ {id:'conversaciones',label:'Conversaciones',soon:1},{id:'tickets',label:'Tickets',soon:1},{id:'kb',label:'Base de conocimiento',soon:1},{id:'anuncios',label:'Anuncios',soon:1} ] },
     { group:'Productos', items:[ {id:'actualizaciones',label:'Actualizaciones'},{id:'licencias',label:'Licencias'},{id:'pf',label:'POS Frutería',soon:1},{id:'pr',label:'POS Restaurante',soon:1},{id:'pg',label:'POS Gimnasio',soon:1},{id:'hardware',label:'Hardware',soon:1} ] },
     { group:'Usuarios', items:[ {id:'administradores',label:'Administradores'},{id:'roles',label:'Roles',soon:1},{id:'permisos',label:'Permisos',soon:1} ] },
@@ -259,18 +262,19 @@
 
   async function loadAll(){
     try{
-      const [b,s,p,l,ad,ve] = await Promise.all([
+      const [b,s,p,l,ad,ve,pl] = await Promise.all([
         sb.from('businesses').select('*').order('created_at',{ascending:true}),
         sb.from('subscriptions').select('*'),
         sb.from('pagos').select('*').order('created_at',{ascending:false}).limit(500),
         sb.from('leads').select('*').order('created_at',{ascending:false}).limit(500),
         sb.from('admins').select('*'),
-        sb.from('versiones').select('*').order('created_at',{ascending:false})
+        sb.from('versiones').select('*').order('created_at',{ascending:false}),
+        sb.from('planes').select('*').order('orden',{ascending:true})
       ]);
       if(b.error) throw b.error;
       const subByB={}; (s.data||[]).forEach(x=>{ subByB[x.business_id]=x; });
       ST.NEGOCIOS=(b.data||[]).map(x=>({ ...x, subscriptions: subByB[x.id]?[subByB[x.id]]:[] }));
-      ST.PAGOS=p.data||[]; ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[];
+      ST.PAGOS=p.data||[]; ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[]; ST.PLANES=pl.data||[];
     }catch(e){ $('content').innerHTML='<div class="card state" style="color:#dc2626">Error al cargar: '+esc(e.message||String(e))+'</div>'; throw e; }
   }
   const nameOf = bid => { const b=ST.NEGOCIOS.find(x=>x.id===bid); return b?(b.business_name||'(sin nombre)'):'—'; };
@@ -286,6 +290,8 @@
       case 'mensajes': return renderMensajes(c,'todos');
       case 'prospectos': return renderMensajes(c,'prospectos');
       case 'leads': return renderMensajes(c,'todos');
+      case 'planes': return renderPlanes(c);
+      case 'facturacion': return renderFacturacion(c);
       case 'pagos': return renderPagos(c);
       case 'renovaciones': return renderRenovaciones(c);
       case 'actualizaciones': return renderActualizaciones(c);
@@ -449,8 +455,8 @@
     try{
       if(act==='pago') return registrarPago(b);
       if(act==='plan'){
-        const v=(prompt('Nuevo plan (basico/pro/multisucursal):', s?s.plan:'basico')||'').toLowerCase();
-        if(!PRECIOS[v]) return; await updSub(b,{plan:v}); }
+        const v=(prompt('Nuevo plan ('+clavesPlan()+'):', s?s.plan:'basico')||'').toLowerCase();
+        if(!(ST.PLANES.some(p=>p.clave===v)||PRECIOS[v])) return; await updSub(b,{plan:v}); }
       else if(act==='precio'){
         const cur=s&&s.precio_mxn!=null?s.precio_mxn:(s?PRECIOS[s.plan]:0);
         const v=prompt('Precio personalizado en MXN/mes (vacío = precio de lista):', cur);
@@ -497,12 +503,12 @@
   async function registrarPago(b){
     const s=subOf(b);
     let plan = s?s.plan:'basico';
-    const planIn=(prompt('Plan (basico/pro/multisucursal):', plan)||plan).toLowerCase();
-    if(PRECIOS[planIn]) plan=planIn;
+    const planIn=(prompt('Plan ('+clavesPlan()+'):', plan)||plan).toLowerCase();
+    if(ST.PLANES.some(p=>p.clave===planIn)||PRECIOS[planIn]) plan=planIn;
     const meses=parseInt(prompt('¿Cuántos meses paga?','1')); if(!meses||meses<1) return;
     const metodo=(prompt('Método: transferencia / efectivo / mercadopago','transferencia')||'otro').toLowerCase();
     const m=['transferencia','efectivo','mercadopago'].includes(metodo)?metodo:'otro';
-    const precioMes = s&&s.precio_mxn!=null?Number(s.precio_mxn):(PRECIOS[plan]||0);
+    const precioMes = s&&s.precio_mxn!=null?Number(s.precio_mxn):planPrecio(plan);
     const base=(s && s.vence && new Date(s.vence)>new Date())?new Date(s.vence):new Date();
     const cubre=ymd(addMonths(base,meses));
     const monto=precioMes*meses;
@@ -547,12 +553,90 @@
     render();
   }
 
+  // ---------- PLANES (Fase 3) ----------
+  function renderPlanes(c){
+    let h=`<div class="sechead"><h2>Planes</h2><span class="sp"></span><button class="btn sm" id="newPlan">Nuevo plan</button></div>
+      <p class="hint">Estos precios se usan en los KPIs, los pagos y deben coincidir con la web. Editar aquí actualiza todo el panel.</p>`;
+    if(!ST.PLANES.length) h+='<div class="card state">Sin planes.</div>';
+    else { h+='<table><thead><tr><th>Clave</th><th>Nombre</th><th>Precio</th><th>Periodo</th><th>Activo</th><th></th></tr></thead><tbody>';
+      for(const p of ST.PLANES) h+=`<tr><td><code>${esc(p.clave)}</code></td><td>${esc(p.nombre)}</td><td><strong>${money(p.precio_mxn)}</strong></td><td>${esc(p.periodo)}</td><td>${p.activo?'<span class="tag t-activa">sí</span>':'<span class="tag t-none">no</span>'}</td><td style="text-align:right"><div class="row-actions" style="justify-content:flex-end"><button class="btn sm ghost" data-editp="${p.id}">Editar</button><button class="btn sm ghost" data-togp="${p.id}">${p.activo?'Desactivar':'Activar'}</button></div></td></tr>`;
+      h+='</tbody></table>'; }
+    c.innerHTML=h;
+    $('newPlan').addEventListener('click', async ()=>{
+      const clave=(prompt('Clave (sin espacios, ej. premium):','')||'').trim().toLowerCase(); if(!clave) return;
+      const nombre=prompt('Nombre visible:', clave)||clave;
+      const precio=Number(prompt('Precio MXN/mes:','0')); if(!(precio>=0)) return;
+      const { error }=await sb.from('planes').insert({clave,nombre,precio_mxn:precio,orden:ST.PLANES.length+1});
+      if(error){ alert('No se pudo crear: '+error.message); return; }
+      await loadAll(); render();
+    });
+    c.querySelectorAll('[data-editp]').forEach(btn=>btn.addEventListener('click', async ()=>{
+      const p=ST.PLANES.find(x=>x.id===btn.dataset.editp);
+      const nombre=prompt('Nombre:', p.nombre)||p.nombre;
+      const precio=Number(prompt('Precio MXN/mes:', p.precio_mxn)); if(!(precio>=0)) return;
+      const { error }=await sb.from('planes').update({nombre,precio_mxn:precio}).eq('id',p.id).select();
+      if(error){ alert('No se pudo actualizar: '+error.message); return; }
+      await loadAll(); render();
+    }));
+    c.querySelectorAll('[data-togp]').forEach(btn=>btn.addEventListener('click', async ()=>{
+      const p=ST.PLANES.find(x=>x.id===btn.dataset.togp);
+      const { error }=await sb.from('planes').update({activo:!p.activo}).eq('id',p.id).select();
+      if(error){ alert('No se pudo: '+error.message); return; }
+      await loadAll(); render();
+    }));
+  }
+
+  // ---------- FACTURACIÓN (Fase 3: PDF ahora, CFDI después) ----------
+  function renderFacturacion(c){
+    const list=ST.NEGOCIOS.filter(b=>!b.archivado);
+    let h=`<p class="hint">Datos fiscales para recibos (y CFDI a futuro). Los recibos PDF se descargan desde "Pagos".</p>
+      <table><thead><tr><th>Negocio</th><th>Razón social</th><th>RFC</th><th>Estado</th><th></th></tr></thead><tbody>`;
+    for(const b of list) h+=`<tr><td><strong>${esc(b.business_name||'—')}</strong></td><td>${esc(b.razon_social||'—')}</td><td>${esc(b.rfc||'—')}</td><td>${b.rfc?'<span class="tag t-activa">completo</span>':'<span class="tag t-none">pendiente</span>'}</td><td style="text-align:right"><button class="btn sm ghost" data-fisc="${b.id}">Editar fiscal</button></td></tr>`;
+    c.innerHTML=h+'</tbody></table>';
+    c.querySelectorAll('[data-fisc]').forEach(btn=>btn.addEventListener('click',()=>editarFiscal(btn.dataset.fisc)));
+  }
+  async function editarFiscal(bid){
+    const b=ST.NEGOCIOS.find(x=>x.id===bid); if(!b) return;
+    const razon=prompt('Razón social:', b.razon_social||''); if(razon===null) return;
+    const rfc=(prompt('RFC:', b.rfc||'')||'').toUpperCase().trim()||null;
+    const regimen=prompt('Régimen fiscal (opcional):', b.regimen_fiscal||'')||null;
+    const cp=prompt('Código postal fiscal:', b.cp_fiscal||'')||null;
+    const uso=prompt('Uso de CFDI (opcional, ej. G03):', b.uso_cfdi||'')||null;
+    const { error }=await sb.from('businesses').update({razon_social:razon||null, rfc, regimen_fiscal:regimen, cp_fiscal:cp, uso_cfdi:uso}).eq('id',bid).select();
+    if(error){ alert('No se pudo guardar: '+error.message); return; }
+    await loadAll(); render();
+  }
+
+  // ---------- RECIBO PDF ----------
+  function genRecibo(pid){
+    const p=ST.PAGOS.find(x=>x.id===pid); if(!p) return;
+    if(!window.jspdf){ alert('No se pudo cargar el generador de PDF.'); return; }
+    const b=ST.NEGOCIOS.find(x=>x.id===p.business_id)||{};
+    const { jsPDF }=window.jspdf; const doc=new jsPDF();
+    doc.setFontSize(20); doc.text('SPES Systems',20,22);
+    doc.setFontSize(10); doc.setTextColor(120); doc.text('spessystems.com · Recibo de pago',20,28); doc.setTextColor(0);
+    const folio='REC-'+String(p.id).slice(0,8).toUpperCase();
+    let y=46; doc.setFontSize(11);
+    const line=(k,v)=>{ doc.setTextColor(120); doc.text(k,20,y); doc.setTextColor(0); doc.text(String(v||'—'),75,y); y+=8; };
+    line('Folio',folio); line('Fecha',fdate(p.created_at)); line('Cliente',b.business_name||'—');
+    if(b.razon_social) line('Razón social',b.razon_social);
+    if(b.rfc) line('RFC',b.rfc);
+    line('Concepto',p.nota||'Suscripción SPES'); line('Método',p.metodo||'—');
+    line('Cubre hasta',p.cubre_hasta?fdate(p.cubre_hasta):'—');
+    y+=4; doc.setDrawColor(220); doc.line(20,y,190,y); y+=12;
+    doc.setFontSize(15); doc.text('Total: '+money(p.monto),20,y);
+    y+=18; doc.setFontSize(9); doc.setTextColor(140);
+    doc.text('Comprobante de pago, no es una factura fiscal (CFDI).',20,y);
+    doc.save(folio+'.pdf');
+  }
+
   // ---------- PAGOS ----------
   function renderPagos(c){
     if(!ST.PAGOS.length){ c.innerHTML='<div class="card state">Aún no hay pagos registrados. Regístralos desde la ficha de cada cliente.</div>'; return; }
-    let h='<table><thead><tr><th>Negocio</th><th>Monto</th><th>Método</th><th>Cubre hasta</th><th>Nota</th><th>Fecha</th></tr></thead><tbody>';
-    for(const p of ST.PAGOS) h+=`<tr><td>${esc(nameOf(p.business_id))}</td><td><strong>${money(p.monto)}</strong></td><td>${esc(p.metodo||'—')}</td><td>${p.cubre_hasta?fdate(p.cubre_hasta):'—'}</td><td class="muted">${esc(p.nota||'—')}</td><td class="muted">${fdate(p.created_at)}</td></tr>`;
+    let h='<table><thead><tr><th>Negocio</th><th>Monto</th><th>Método</th><th>Cubre hasta</th><th>Nota</th><th>Fecha</th><th></th></tr></thead><tbody>';
+    for(const p of ST.PAGOS) h+=`<tr><td>${esc(nameOf(p.business_id))}</td><td><strong>${money(p.monto)}</strong></td><td>${esc(p.metodo||'—')}</td><td>${p.cubre_hasta?fdate(p.cubre_hasta):'—'}</td><td class="muted">${esc(p.nota||'—')}</td><td class="muted">${fdate(p.created_at)}</td><td style="text-align:right"><button class="btn sm ghost" data-recibo="${p.id}">Recibo PDF</button></td></tr>`;
     c.innerHTML=h+'</tbody></table>';
+    c.querySelectorAll('[data-recibo]').forEach(btn=>btn.addEventListener('click',()=>genRecibo(btn.dataset.recibo)));
   }
 
   // ---------- RENOVACIONES ----------
