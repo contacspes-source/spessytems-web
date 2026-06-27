@@ -152,9 +152,35 @@
       if(error){ m.textContent=traducirAuth(error.message); m.className='msg err'; }
     }catch(err){ m.textContent=traducirAuth(err && err.message); m.className='msg err'; }
   });
-  $('logout').addEventListener('click', ()=> sb.auth.signOut());
-  sb.auth.onAuthStateChange((_e, session)=> session ? showApp(session) : showLogin());
-  sb.auth.getSession().then(({data})=> data.session ? showApp(data.session) : showLogin());
+  async function cerrarSesion(){
+    // scope 'local' limpia la sesión de ESTE navegador sin depender del servidor
+    // (evita quedar "logueado" si el token ya estaba vencido/revocado).
+    try{ await sb.auth.signOut({ scope:'local' }); }catch(_){ }
+    // Respaldo: borra cualquier token guardado de Supabase por si algo quedó.
+    try{ Object.keys(window.localStorage).filter(k=>k.indexOf('sb-')===0).forEach(k=>window.localStorage.removeItem(k)); }catch(_){ }
+    showLogin();
+  }
+  $('logout').addEventListener('click', cerrarSesion);
+
+  // Reacciona a cambios de sesión (login/logout/refresh), ignorando el evento
+  // inicial: ese lo validamos abajo para no quedar atorados con sesiones viejas.
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(event==='INITIAL_SESSION') return;
+    if(!session || event==='SIGNED_OUT'){ showLogin(); return; }
+    showApp(session);
+  });
+
+  // Arranque robusto: si hay sesión guardada, la VALIDAMOS contra el servidor.
+  // Si está vencida o revocada, se limpia sola y muestra el login limpio
+  // (así nunca más hay que borrarla a mano desde la consola).
+  (async ()=>{
+    try{
+      const { data } = await sb.auth.getSession();
+      if(!data || !data.session){ showLogin(); return; }
+      const { error } = await sb.auth.getUser();   // ¿sigue válida?
+      if(error){ await cerrarSesion(); } else { showApp(data.session); }
+    }catch(_){ await cerrarSesion(); }
+  })();
 
   function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
 
