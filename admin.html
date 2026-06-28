@@ -314,7 +314,7 @@
       const [b,s,p,l,ad,ve,pl,tk,an,kb,nt] = await Promise.all([
         sb.from('businesses').select('*').order('created_at',{ascending:true}),
         sb.from('subscriptions').select('*'),
-        sb.from('pagos').select('*').order('created_at',{ascending:false}).limit(500),
+        sb.from('pagos').select('*').order('fecha',{ascending:false}).limit(500),
         sb.from('leads').select('*').order('created_at',{ascending:false}).limit(500),
         sb.from('admins').select('*'),
         sb.from('versiones').select('*').order('created_at',{ascending:false}),
@@ -327,7 +327,7 @@
       if(b.error) throw b.error;
       const subByB={}; (s.data||[]).forEach(x=>{ subByB[x.business_id]=x; });
       ST.NEGOCIOS=(b.data||[]).map(x=>({ ...x, subscriptions: subByB[x.id]?[subByB[x.id]]:[] }));
-      ST.PAGOS=p.data||[]; ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[]; ST.PLANES=pl.data||[];
+      ST.PAGOS=(p.data||[]).map(x=>({ ...x, created_at: x.created_at || x.fecha })); ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[]; ST.PLANES=pl.data||[];
       ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.KB=kb.data||[]; ST.NOTAS=nt.data||[];
     }catch(e){ $('content').innerHTML='<div class="card state" style="color:#dc2626">Error al cargar: '+esc(e.message||String(e))+'</div>'; }
   }
