@@ -607,18 +607,36 @@
       const p=await sb.from('pagos').insert({business_id:b.id, monto, metodo, cubre_hasta:cubre, nota:meses+' mes(es) · '+plan}).select();
       if(p.error){ $('m_err').textContent='No se pudo registrar: '+p.error.message; $('m_save').disabled=false; return; }
       await sb.from('subscriptions').update({plan, estado:'activa', vence:cubre, updated_at:new Date().toISOString()}).eq('business_id',b.id);
-      closeModal();
+      const newId = (p.data && p.data[0]) ? p.data[0].id : null;
       await loadAll(); go('cliente',b.id);
-      if(p.data&&p.data[0]) genRecibo(p.data[0].id);
+      modalShell('<h3>Pago registrado ✓</h3><p style="margin-top:8px;color:#3f3f46;font-size:14px">Se actualizó la suscripción del cliente.</p><div class="mrow"><button class="btn ghost" id="m_close">Cerrar</button><button class="btn" id="m_dl">Descargar recibo PDF</button></div>');
+      $('m_close').onclick=closeModal;
+      $('m_dl').onclick=()=>{ closeModal(); if(newId) genRecibo(newId); };
     };
   }
 
   // ===== RECIBO PDF =====
-  function genRecibo(pid){
+  let _jspdfReady=null;
+  function ensureJsPDF(){
+    const get=()=>(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF||null;
+    if(get()) return Promise.resolve(get());
+    if(_jspdfReady) return _jspdfReady;
+    _jspdfReady=new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+      s.onload=()=>{ const g=get(); g?res(g):rej(new Error('jsPDF cargó pero no expuso el módulo')); };
+      s.onerror=()=>rej(new Error('No se pudo descargar jsPDF (¿bloqueado por CSP o sin red?)'));
+      document.head.appendChild(s);
+    });
+    return _jspdfReady;
+  }
+  async function genRecibo(pid){
     const p=ST.PAGOS.find(x=>x.id===pid); if(!p) return;
-    if(!window.jspdf || !window.jspdf.jsPDF){ notify('No se pudo cargar el generador de PDF. Revisa tu conexión y reintenta.','error'); return; }
+    let JS;
+    try{ JS=await ensureJsPDF(); }catch(e){ notify('No se pudo cargar el generador de PDF: '+(e.message||e),'error'); return; }
+    try{
     const b=ST.NEGOCIOS.find(x=>x.id===p.business_id)||{};
-    const { jsPDF }=window.jspdf; const doc=new jsPDF();
+    const doc=new JS();
     doc.setFontSize(20); doc.text('SPES Systems',20,22);
     doc.setFontSize(10); doc.setTextColor(120); doc.text('spessystems.com · Recibo de pago',20,28); doc.setTextColor(0);
     const folio='REC-'+String(p.id).slice(0,8).toUpperCase();
@@ -634,6 +652,7 @@
     y+=18; doc.setFontSize(9); doc.setTextColor(140);
     doc.text('Comprobante de pago, no es una factura fiscal (CFDI).',20,y);
     doc.save(folio+'.pdf');
+    }catch(e){ notify('Error al generar el PDF: '+(e.message||e),'error'); }
   }
 
   // ===== PLANES =====
