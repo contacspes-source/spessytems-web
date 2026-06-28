@@ -210,14 +210,15 @@
   function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
 
   // ---------- STATE ----------
-  const ST = { view:'dashboard', clienteId:null, isPrincipal:false, email:'',
-    NEGOCIOS:[], LEADS:[], PAGOS:[], ADMINS:[], VERSIONES:[], NOTAS:[], PLANES:[] };
+  const ST = { view:'dashboard', clienteId:null, param:null, isPrincipal:false, email:'',
+    NEGOCIOS:[], LEADS:[], PAGOS:[], ADMINS:[], VERSIONES:[], NOTAS:[], PLANES:[],
+    TICKETS:[], TMSGS:[], ANUNCIOS:[], KB:[] };
 
   const NAV = [
     { items:[ {id:'dashboard',label:'Dashboard'} ] },
     { group:'CRM', items:[ {id:'prospectos',label:'Prospectos'},{id:'clientes',label:'Clientes'},{id:'mensajes',label:'Mensajes'},{id:'empresas',label:'Empresas',soon:1},{id:'contactos',label:'Contactos',soon:1} ] },
     { group:'Suscripciones', items:[ {id:'planes',label:'Planes'},{id:'membresias',label:'Membresías',soon:1},{id:'facturacion',label:'Facturación'},{id:'pagos',label:'Pagos'},{id:'renovaciones',label:'Renovaciones'} ] },
-    { group:'Soporte', items:[ {id:'conversaciones',label:'Conversaciones',soon:1},{id:'tickets',label:'Tickets',soon:1},{id:'kb',label:'Base de conocimiento',soon:1},{id:'anuncios',label:'Anuncios',soon:1} ] },
+    { group:'Soporte', items:[ {id:'conversaciones',label:'Conversaciones',soon:1},{id:'tickets',label:'Tickets'},{id:'kb',label:'Base de conocimiento'},{id:'anuncios',label:'Anuncios'} ] },
     { group:'Productos', items:[ {id:'actualizaciones',label:'Actualizaciones'},{id:'licencias',label:'Licencias'},{id:'pf',label:'POS Frutería',soon:1},{id:'pr',label:'POS Restaurante',soon:1},{id:'pg',label:'POS Gimnasio',soon:1},{id:'hardware',label:'Hardware',soon:1} ] },
     { group:'Usuarios', items:[ {id:'administradores',label:'Administradores'},{id:'roles',label:'Roles',soon:1},{id:'permisos',label:'Permisos',soon:1} ] },
     { group:'Marketing', items:[ {id:'leads',label:'Leads'},{id:'formularios',label:'Formularios',soon:1},{id:'newsletter',label:'Newsletter',soon:1} ] },
@@ -241,7 +242,7 @@
   }
   $('nav').addEventListener('click', e=>{ const a=e.target.closest('a[data-view]'); if(!a) return; go(a.dataset.view); $('aside').classList.remove('open'); });
 
-  function go(view, clienteId){ ST.view=view; ST.clienteId=clienteId||null; renderNav(); render(); window.scrollTo(0,0); }
+  function go(view, param){ ST.view=view; ST.param=param||null; if(view==='cliente') ST.clienteId=param||null; renderNav(); render(); window.scrollTo(0,0); }
 
   // ---------- APP BOOT ----------
   async function showApp(session){
@@ -262,19 +263,23 @@
 
   async function loadAll(){
     try{
-      const [b,s,p,l,ad,ve,pl] = await Promise.all([
+      const [b,s,p,l,ad,ve,pl,tk,an,kb] = await Promise.all([
         sb.from('businesses').select('*').order('created_at',{ascending:true}),
         sb.from('subscriptions').select('*'),
         sb.from('pagos').select('*').order('created_at',{ascending:false}).limit(500),
         sb.from('leads').select('*').order('created_at',{ascending:false}).limit(500),
         sb.from('admins').select('*'),
         sb.from('versiones').select('*').order('created_at',{ascending:false}),
-        sb.from('planes').select('*').order('orden',{ascending:true})
+        sb.from('planes').select('*').order('orden',{ascending:true}),
+        sb.from('tickets').select('*').order('updated_at',{ascending:false}),
+        sb.from('anuncios').select('*').order('created_at',{ascending:false}),
+        sb.from('kb_articulos').select('*').order('created_at',{ascending:false})
       ]);
       if(b.error) throw b.error;
       const subByB={}; (s.data||[]).forEach(x=>{ subByB[x.business_id]=x; });
       ST.NEGOCIOS=(b.data||[]).map(x=>({ ...x, subscriptions: subByB[x.id]?[subByB[x.id]]:[] }));
       ST.PAGOS=p.data||[]; ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[]; ST.PLANES=pl.data||[];
+      ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.KB=kb.data||[];
     }catch(e){ $('content').innerHTML='<div class="card state" style="color:#dc2626">Error al cargar: '+esc(e.message||String(e))+'</div>'; throw e; }
   }
   const nameOf = bid => { const b=ST.NEGOCIOS.find(x=>x.id===bid); return b?(b.business_name||'(sin nombre)'):'—'; };
@@ -292,6 +297,10 @@
       case 'leads': return renderMensajes(c,'todos');
       case 'planes': return renderPlanes(c);
       case 'facturacion': return renderFacturacion(c);
+      case 'tickets': return renderTickets(c);
+      case 'ticket': return renderTicketDetail(c);
+      case 'anuncios': return renderAnuncios(c);
+      case 'kb': return renderKb(c);
       case 'pagos': return renderPagos(c);
       case 'renovaciones': return renderRenovaciones(c);
       case 'actualizaciones': return renderActualizaciones(c);
@@ -330,6 +339,8 @@
     const renov = ST.NEGOCIOS.map(subOf).filter(s=>s && ['activa','prueba'].includes(s.estado)).map(s=>({s,dl:daysLeft(s.vence)}))
       .filter(x=>x.dl!=null && x.dl>=0 && x.dl<=14).sort((a,b)=>a.dl-b.dl);
     const feed=actividadFeed();
+    const tAb=ST.TICKETS.filter(t=>['abierto','en_proceso','esperando'].includes(t.estado)).length;
+    const tCrit=ST.TICKETS.filter(t=>t.prioridad==='urgente'&&!['resuelto','cerrado'].includes(t.estado)).length;
     const ultPagos=ST.PAGOS.slice(0,6), ultReg=ST.NEGOCIOS.slice().reverse().slice(0,6), ultMsg=ST.LEADS.slice(0,6);
     c.innerHTML = `
       <div class="kpis">
@@ -346,8 +357,8 @@
       </div>
       <div class="kpis">
         <div class="kpi soon"><div class="n">—</div><div class="l">Churn <span class="soontag">pronto</span></div></div>
-        <div class="kpi soon"><div class="n">—</div><div class="l">Tickets abiertos <span class="soontag">pronto</span></div></div>
-        <div class="kpi soon"><div class="n">—</div><div class="l">Incidencias críticas <span class="soontag">pronto</span></div></div>
+        <div class="kpi"><div class="n">${tAb}</div><div class="l">Tickets abiertos</div></div>
+        <div class="kpi"><div class="n danger">${tCrit}</div><div class="l">Incidencias críticas</div></div>
         <div class="kpi soon"><div class="n">OK</div><div class="l">Infra / Sync <span class="soontag">pronto</span></div></div>
       </div>
       <div class="grid2">
@@ -400,6 +411,7 @@
     const s=subOf(b), dl=s?daysLeft(s.vence):null;
     const pagos=ST.PAGOS.filter(p=>p.business_id===b.id);
     const notas=ST.NOTAS.filter(n=>n.business_id===b.id);
+    const ticketsCliente=ST.TICKETS.filter(t=>t.business_id===b.id);
     const A=(id,txt,extra)=>`<button class="btn sm ${extra||'ghost'}" data-act="${id}">${txt}</button>`;
     c.innerHTML = `
       <span class="back" id="back">‹ Volver a clientes</span>
@@ -437,7 +449,8 @@
           <div id="notasList">${notas.length?'<ul class="feed">'+notas.map(n=>`<li><span class="dot"></span><span>${esc(n.texto)}</span><time>${fdate(n.created_at)}</time></li>`).join('')+'</ul>':'<p class="muted">Sin notas.</p>'}</div>
           <div style="display:flex;gap:8px;margin-top:10px"><input id="notaTxt" placeholder="Agregar nota…" style="margin:0"><button class="btn sm" id="notaAdd">Agregar</button></div>
         </div>
-        <div class="panel soonbox" style="grid-column:1/-1"><div class="big">Dispositivos · Sucursales · Respaldos · Tickets</div>Se conectan cuando el POS sincronice en la nube y exista el módulo de soporte (Fases 4–5).</div>
+        <div class="panel" style="grid-column:1/-1"><h3>Tickets de soporte (${ticketsCliente.length})</h3>${ticketsCliente.length?'<ul class="feed">'+ticketsCliente.map(t=>`<li><span class="dot d-mensaje"></span><span>${esc(t.asunto)} · ${esc((t.estado||'').replace('_',' '))}</span><time>${fdate(t.created_at)}</time></li>`).join('')+'</ul>':'<p class="muted">Sin tickets.</p>'}</div>
+        <div class="panel soonbox" style="grid-column:1/-1"><div class="big">Dispositivos · Sucursales · Respaldos</div>Se conectan cuando el POS sincronice en la nube (Fase 5).</div>
       </div>`;
     $('back').addEventListener('click',()=>go('clientes'));
     c.querySelectorAll('[data-act]').forEach(btn=>btn.addEventListener('click',()=>accionCliente(btn.dataset.act,b)));
@@ -694,6 +707,118 @@
       if(error){ alert('No se pudo borrar: '+error.message); return; }
       await loadAll(); render();
     }));
+  }
+
+  // ---------- SOPORTE (Fase 4) ----------
+  const EST_TK=['abierto','en_proceso','esperando','resuelto','cerrado'];
+  const PRIO_TK=['baja','media','alta','urgente'];
+  function tkEstadoTag(e){ const map={abierto:'t-nuevo',en_proceso:'t-proceso',esperando:'t-leido',resuelto:'t-activa',cerrado:'t-none'}; return '<span class="tag '+(map[e]||'t-none')+'">'+esc((e||'').replace('_',' '))+'</span>'; }
+  function tkPrioTag(p){ const map={baja:'t-leido',media:'t-nuevo',alta:'t-proceso',urgente:'t-suspendida'}; return '<span class="tag '+(map[p]||'t-none')+'">'+esc(p||'media')+'</span>'; }
+
+  async function openTicket(id){
+    const { data }=await sb.from('ticket_mensajes').select('*').eq('ticket_id',id).order('created_at',{ascending:true});
+    ST.TMSGS=data||[]; go('ticket',id);
+  }
+  function renderTickets(c){
+    let h=`<div class="sechead"><h2>Tickets de soporte</h2><span class="sp"></span><button class="btn sm" id="newTk">Nuevo ticket</button></div>
+      <p class="hint">Cuando el Portal del cliente esté listo (Fase 5), los tickets que abran tus clientes llegarán aquí.</p>`;
+    if(!ST.TICKETS.length) h+='<div class="card state">Sin tickets aún.</div>';
+    else { h+='<table><thead><tr><th>Asunto</th><th>Cliente</th><th>Estado</th><th>Prioridad</th><th>Asignado</th><th>Actualizado</th><th></th></tr></thead><tbody>';
+      for(const t of ST.TICKETS) h+=`<tr><td><strong>${esc(t.asunto)}</strong></td><td>${esc(t.business_id?nameOf(t.business_id):'—')}</td><td>${tkEstadoTag(t.estado)}</td><td>${tkPrioTag(t.prioridad)}</td><td>${esc(t.asignado||'—')}</td><td class="muted">${fdate(t.updated_at)}</td><td style="text-align:right"><button class="btn sm" data-tk="${t.id}">Abrir ›</button></td></tr>`;
+      h+='</tbody></table>'; }
+    c.innerHTML=h;
+    $('newTk').addEventListener('click', nuevoTicket);
+    c.querySelectorAll('[data-tk]').forEach(btn=>btn.addEventListener('click',()=>openTicket(btn.dataset.tk)));
+  }
+  async function nuevoTicket(){
+    const asunto=prompt('Asunto del ticket:',''); if(!asunto) return;
+    let business_id=null;
+    const negName=prompt('Cliente (nombre exacto, o deja vacío):','');
+    if(negName){ const b=ST.NEGOCIOS.find(x=>(x.business_name||'').toLowerCase()===negName.trim().toLowerCase()); if(b) business_id=b.id; else if(!confirm('No encontré ese cliente. ¿Crear ticket sin cliente?')) return; }
+    const prioridad=(prompt('Prioridad (baja/media/alta/urgente):','media')||'media').toLowerCase();
+    const { data,error }=await sb.from('tickets').insert({asunto, business_id, prioridad:PRIO_TK.includes(prioridad)?prioridad:'media', canal:'panel', asignado:ST.email}).select();
+    if(error){ alert('No se pudo crear: '+error.message); return; }
+    await loadAll(); if(data&&data[0]) openTicket(data[0].id); else render();
+  }
+  function renderTicketDetail(c){
+    const t=ST.TICKETS.find(x=>x.id===ST.param);
+    if(!t){ c.innerHTML='<div class="card state">Ticket no encontrado.</div>'; return; }
+    c.innerHTML=`
+      <span class="back" id="backTk">‹ Volver a tickets</span>
+      <div class="sechead"><h2>${esc(t.asunto)}</h2> ${tkEstadoTag(t.estado)} ${tkPrioTag(t.prioridad)}</div>
+      <div class="row-actions" style="margin-bottom:14px">
+        <button class="btn sm ghost" data-tkact="estado">Cambiar estado</button>
+        <button class="btn sm ghost" data-tkact="prioridad">Prioridad</button>
+        <button class="btn sm ghost" data-tkact="asignar">Asignar</button>
+      </div>
+      <div class="panel"><dl class="kv">
+        <dt>Cliente</dt><dd>${esc(t.business_id?nameOf(t.business_id):'—')}</dd>
+        <dt>Asignado</dt><dd>${esc(t.asignado||'—')}</dd>
+        <dt>Canal</dt><dd>${esc(t.canal||'—')}</dd>
+        <dt>Creado</dt><dd>${fdatetime(t.created_at)}</dd>
+      </dl></div>
+      <div class="panel" style="margin-top:14px"><h3>Conversación</h3>
+        <div id="thread">${ST.TMSGS.length?ST.TMSGS.map(mm=>`<div style="padding:8px 0;border-bottom:1px solid #f4f4f5"><div style="font-size:12px;color:#71717a">${esc(mm.autor||mm.autor_tipo)} · ${fdatetime(mm.created_at)}</div><div>${esc(mm.cuerpo)}</div></div>`).join(''):'<p class="muted">Sin mensajes todavía.</p>'}</div>
+        <div style="display:flex;gap:8px;margin-top:12px"><input id="tkReply" placeholder="Escribe una respuesta…" style="margin:0"><button class="btn" id="tkSend">Responder</button></div>
+      </div>`;
+    $('backTk').addEventListener('click',()=>go('tickets'));
+    c.querySelectorAll('[data-tkact]').forEach(btn=>btn.addEventListener('click',()=>ticketAccion(btn.dataset.tkact,t)));
+    $('tkSend').addEventListener('click', async ()=>{
+      const v=$('tkReply').value.trim(); if(!v) return;
+      const { error }=await sb.from('ticket_mensajes').insert({ticket_id:t.id, autor:ST.email, autor_tipo:'admin', cuerpo:v});
+      if(error){ alert('No se pudo enviar: '+error.message); return; }
+      await sb.from('tickets').update({updated_at:new Date().toISOString()}).eq('id',t.id);
+      await loadAll(); openTicket(t.id);
+    });
+  }
+  async function ticketAccion(act,t){
+    let patch={};
+    if(act==='estado'){ const v=(prompt('Estado ('+EST_TK.join('/')+'):',t.estado)||'').toLowerCase(); if(!EST_TK.includes(v)) return; patch.estado=v; }
+    else if(act==='prioridad'){ const v=(prompt('Prioridad ('+PRIO_TK.join('/')+'):',t.prioridad)||'').toLowerCase(); if(!PRIO_TK.includes(v)) return; patch.prioridad=v; }
+    else if(act==='asignar'){ const v=prompt('Asignar a:',t.asignado||ST.email); if(v===null) return; patch.asignado=v; }
+    patch.updated_at=new Date().toISOString();
+    const { error }=await sb.from('tickets').update(patch).eq('id',t.id).select();
+    if(error){ alert('No se pudo: '+error.message); return; }
+    await loadAll(); render();
+  }
+
+  // ---------- ANUNCIOS ----------
+  function renderAnuncios(c){
+    let h=`<div class="sechead"><h2>Anuncios</h2><span class="sp"></span><button class="btn sm" id="newAn">Nuevo anuncio</button></div>
+      <p class="hint">Avisos para tus clientes (aparecerán en el Portal y la app cuando estén conectados).</p>`;
+    if(!ST.ANUNCIOS.length) h+='<div class="card state">Sin anuncios.</div>';
+    else { h+='<div style="display:flex;flex-direction:column;gap:12px">';
+      for(const a of ST.ANUNCIOS) h+=`<div class="panel"><div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0">${esc(a.titulo)}</h3>${a.publicado?'<span class="tag t-activa">publicado</span>':'<span class="tag t-none">oculto</span>'}<span class="sp" style="margin-left:auto"></span><span class="muted" style="font-size:12px">${fdate(a.created_at)}</span><button class="btn sm ghost" data-delan="${a.id}">Borrar</button></div>${a.cuerpo?'<p style="margin-top:6px">'+esc(a.cuerpo)+'</p>':''}</div>`;
+      h+='</div>'; }
+    c.innerHTML=h;
+    $('newAn').addEventListener('click', async ()=>{
+      const titulo=prompt('Título:',''); if(!titulo) return;
+      const cuerpo=prompt('Mensaje:','')||null;
+      const { error }=await sb.from('anuncios').insert({titulo,cuerpo,publicado:true});
+      if(error){ alert('No se pudo: '+error.message); return; }
+      await loadAll(); render();
+    });
+    c.querySelectorAll('[data-delan]').forEach(btn=>btn.addEventListener('click', async ()=>{ if(!confirm('¿Borrar anuncio?'))return; const {error}=await sb.from('anuncios').delete().eq('id',btn.dataset.delan); if(error){alert(error.message);return;} await loadAll(); render(); }));
+  }
+
+  // ---------- BASE DE CONOCIMIENTO ----------
+  function renderKb(c){
+    let h=`<div class="sechead"><h2>Base de conocimiento</h2><span class="sp"></span><button class="btn sm" id="newKb">Nuevo artículo</button></div>
+      <p class="hint">Guías y respuestas frecuentes para tus clientes.</p>`;
+    if(!ST.KB.length) h+='<div class="card state">Sin artículos.</div>';
+    else { h+='<table><thead><tr><th>Título</th><th>Categoría</th><th>Estado</th><th>Fecha</th><th></th></tr></thead><tbody>';
+      for(const a of ST.KB) h+=`<tr><td><strong>${esc(a.titulo)}</strong></td><td>${esc(a.categoria||'—')}</td><td>${a.publicado?'<span class="tag t-activa">publicado</span>':'<span class="tag t-none">borrador</span>'}</td><td class="muted">${fdate(a.created_at)}</td><td style="text-align:right"><button class="btn sm ghost" data-delkb="${a.id}">Borrar</button></td></tr>`;
+      h+='</tbody></table>'; }
+    c.innerHTML=h;
+    $('newKb').addEventListener('click', async ()=>{
+      const titulo=prompt('Título del artículo:',''); if(!titulo) return;
+      const categoria=prompt('Categoría (opcional):','')||null;
+      const contenido=prompt('Contenido:','')||null;
+      const { error }=await sb.from('kb_articulos').insert({titulo,categoria,contenido,publicado:true});
+      if(error){ alert('No se pudo: '+error.message); return; }
+      await loadAll(); render();
+    });
+    c.querySelectorAll('[data-delkb]').forEach(btn=>btn.addEventListener('click', async ()=>{ if(!confirm('¿Borrar artículo?'))return; const {error}=await sb.from('kb_articulos').delete().eq('id',btn.dataset.delkb); if(error){alert(error.message);return;} await loadAll(); render(); }));
   }
 
   // ---------- ADMINISTRADORES ----------
