@@ -410,8 +410,8 @@ tailwind.config = {
       <div class="card fade-up p-8 rounded-2xl border border-white/10 flex flex-col">
         <h3 class="text-lg font-bold">Básico</h3><p class="text-white/50 text-sm mt-1">Para una tienda que arranca</p>
         <div class="mt-5 mb-6">
-          <span class="text-4xl font-extrabold">$349</span><span class="text-white/50 text-sm"> /mes</span>
-          <div class="text-xs text-white/45 mt-1">o $3,490/año · ahorra 2 meses</div>
+          <span class="text-4xl font-extrabold" data-plan-price="basico">$349</span><span class="text-white/50 text-sm"> /mes</span>
+          <div class="text-xs text-white/45 mt-1" data-plan-annual="basico">o $3,490/año · ahorra 2 meses</div>
         </div>
         <ul class="space-y-2.5 text-sm text-white/65 flex-1"><li>✓ 1 sucursal, 1–2 cajas</li><li>✓ Ventas e inventario completos</li><li>✓ Reportes esenciales</li><li>✓ Soporte en español</li></ul>
         <a href="#contacto" class="mt-7 text-center border border-white/25 rounded-full py-2.5 font-semibold hover:bg-white/10 transition">Empezar</a>
@@ -420,8 +420,8 @@ tailwind.config = {
         <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-ink text-xs font-bold px-3 py-1 rounded-full">Más popular</span>
         <h3 class="text-lg font-bold">Pro</h3><p class="text-white/50 text-sm mt-1">Para negocios en crecimiento</p>
         <div class="mt-5 mb-6">
-          <span class="text-4xl font-extrabold">$599</span><span class="text-white/50 text-sm"> /mes</span>
-          <div class="text-xs text-white/45 mt-1">o $5,990/año · ahorra 2 meses</div>
+          <span class="text-4xl font-extrabold" data-plan-price="pro">$599</span><span class="text-white/50 text-sm"> /mes</span>
+          <div class="text-xs text-white/45 mt-1" data-plan-annual="pro">o $5,990/año · ahorra 2 meses</div>
         </div>
         <ul class="space-y-2.5 text-sm text-white/75 flex-1"><li>✓ Todo lo de Básico</li><li>✓ Varias cajas</li><li>✓ Reportes avanzados</li><li>✓ Clientes, lealtad y cotizaciones</li><li>✓ Roles, permisos y auditoría</li></ul>
         <a href="#contacto" class="mt-7 text-center bg-white text-ink rounded-full py-2.5 font-semibold hover:scale-105 transition">Empezar</a>
@@ -429,7 +429,7 @@ tailwind.config = {
       <div class="card fade-up p-8 rounded-2xl border border-white/10 flex flex-col">
         <h3 class="text-lg font-bold">Multisucursal</h3><p class="text-white/50 text-sm mt-1">Para varias tiendas</p>
         <div class="mt-5 mb-6">
-          <span class="text-4xl font-extrabold">Desde $999</span><span class="text-white/50 text-sm"> /mes</span>
+          <span class="text-4xl font-extrabold" data-plan-price="multisucursal" data-plan-prefix="Desde ">Desde $999</span><span class="text-white/50 text-sm"> /mes</span>
           <div class="text-xs text-white/45 mt-1">Cotización a tu medida</div>
         </div>
         <ul class="space-y-2.5 text-sm text-white/65 flex-1"><li>✓ Todo lo de Pro</li><li>✓ Varias tiendas y traspasos</li><li>✓ Reportes consolidados</li><li>✓ Caja por sucursal</li><li>✓ Acompañamiento dedicado</li></ul>
@@ -707,6 +707,19 @@ tailwind.config = {
     }
     return false;
   }
+</script>
+<script>
+/* Precios dinámicos desde el panel (tabla planes). Si falla, quedan los valores de respaldo del HTML. */
+(function(){
+  var U='https://khpecvszzhyygqudeagr.supabase.co/rest/v1/planes?select=clave,precio_mxn&activo=eq.true';
+  var K='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
+  fetch(U,{headers:{apikey:K,Authorization:'Bearer '+K}}).then(function(r){return r.ok?r.json():null;}).then(function(d){
+    if(!d) return; var m={}; d.forEach(function(p){ m[p.clave]=Number(p.precio_mxn); });
+    function fmt(n){ return n.toLocaleString('es-MX'); }
+    document.querySelectorAll('[data-plan-price]').forEach(function(el){ var c=el.getAttribute('data-plan-price'); if(m[c]!=null){ el.textContent=(el.getAttribute('data-plan-prefix')||'')+'$'+fmt(m[c]); } });
+    document.querySelectorAll('[data-plan-annual]').forEach(function(el){ var c=el.getAttribute('data-plan-annual'); if(m[c]!=null){ el.textContent='o $'+fmt(m[c]*10)+'/año · ahorra 2 meses'; } });
+  }).catch(function(){});
+})();
 </script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "d80fdf8614cf43c282e7932d81653b3e"}'></script><!-- End Cloudflare Web Analytics -->
 </body>

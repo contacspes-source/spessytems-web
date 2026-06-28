@@ -23,7 +23,7 @@
   .btn{ background:#000; color:#fff; border:0; border-radius:9px; padding:9px 14px; font-weight:700; font-size:13px; }
   .btn:hover{ opacity:.9; } .btn.sm{ padding:5px 10px; font-size:12px; border-radius:7px; }
   .btn.ghost{ background:#fff; color:var(--ink); border:1px solid #d4d4d8; }
-  .btn.danger{ background:#dc2626; }
+  .btn.danger{ background:#dc2626; color:#fff; }
   .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:#dc2626; } .ok{ color:#16a34a; }
   /* APP LAYOUT */
   #app{ display:flex; min-height:100vh; }
@@ -87,6 +87,12 @@
   .kv dt{ color:var(--muted); } .kv dd{ font-weight:600; }
   .soonbox{ padding:40px; text-align:center; color:var(--muted); }
   .soonbox .big{ font-size:16px; font-weight:800; color:var(--ink); margin-bottom:6px; }
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .modal{ background:#fff; border-radius:14px; padding:22px; width:100%; max-width:420px; box-shadow:0 20px 60px -20px rgba(0,0,0,.4); }
+  .modal h3{ font-size:16px; font-weight:800; margin-bottom:2px; }
+  .flbl{ display:block; font-size:12px; color:#71717a; margin-top:10px; font-weight:600; }
+  .mtotal{ margin-top:14px; font-weight:800; font-size:18px; }
+  .mrow{ display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
   #filebanner{ background:#fef2f2; color:#991b1b; border-bottom:1px solid #fecaca; padding:12px 18px; font-size:13px; text-align:center; }
   #filebanner code{ background:#fff; padding:1px 6px; border-radius:5px; border:1px solid #fecaca; }
 </style>
@@ -136,6 +142,8 @@
     </main>
   </div>
 </div>
+
+<div id="modal" class="modal-overlay hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -443,7 +451,7 @@
           <dt>Vence</dt><dd>${s?fdate(s.vence)+(dl!=null?' ('+(dl<0?'vencida':dl+' d')+')':''):'—'}</dd>
         </dl></div>
         <div class="panel"><h3>Historial de pagos (${pagos.length})</h3>
-          ${pagos.length?'<ul class="feed">'+pagos.map(p=>`<li><span class="dot d-pago"></span><span>${money(p.monto)} · ${esc(p.metodo||'—')}${p.nota?' · '+esc(p.nota):''}</span><time>${fdate(p.created_at)}</time></li>`).join('')+'</ul>':'<p class="muted">Sin pagos.</p>'}
+          ${pagos.length?'<ul class="feed">'+pagos.map(p=>`<li><span class="dot d-pago"></span><span>${money(p.monto)} · ${esc(p.metodo||'—')}${p.nota?' · '+esc(p.nota):''}</span><button class="btn sm ghost" data-recibo="${p.id}" style="margin-left:auto">PDF</button><time style="margin-left:8px">${fdate(p.created_at)}</time></li>`).join('')+'</ul>':'<p class="muted">Sin pagos.</p>'}
         </div>
         <div class="panel"><h3>Notas internas</h3>
           <div id="notasList">${notas.length?'<ul class="feed">'+notas.map(n=>`<li><span class="dot"></span><span>${esc(n.texto)}</span><time>${fdate(n.created_at)}</time></li>`).join('')+'</ul>':'<p class="muted">Sin notas.</p>'}</div>
@@ -454,6 +462,7 @@
       </div>`;
     $('back').addEventListener('click',()=>go('clientes'));
     c.querySelectorAll('[data-act]').forEach(btn=>btn.addEventListener('click',()=>accionCliente(btn.dataset.act,b)));
+    c.querySelectorAll('[data-recibo]').forEach(btn=>btn.addEventListener('click',()=>genRecibo(btn.dataset.recibo)));
     $('notaAdd').addEventListener('click', async ()=>{
       const t=$('notaTxt').value.trim(); if(!t) return;
       const { error }=await sb.from('notas_cliente').insert({business_id:b.id, texto:t, autor:ST.email});
@@ -466,7 +475,7 @@
   async function accionCliente(act,b){
     const s=subOf(b);
     try{
-      if(act==='pago') return registrarPago(b);
+      if(act==='pago') return openPagoModal(b);
       if(act==='plan'){
         const v=(prompt('Nuevo plan ('+clavesPlan()+'):', s?s.plan:'basico')||'').toLowerCase();
         if(!(ST.PLANES.some(p=>p.clave===v)||PRECIOS[v])) return; await updSub(b,{plan:v}); }
@@ -512,6 +521,49 @@
     if(!data||!data.length) alert('No cambió la suscripción (¿este negocio no tiene una?).');
   }
   async function updBiz(b,patch){ const { error }=await sb.from('businesses').update(patch).eq('id',b.id).select(); if(error) throw error; }
+
+  // ---------- MODAL ----------
+  function showModal(html){ const m=$('modal'); m.innerHTML='<div class="modal">'+html+'</div>'; m.classList.remove('hidden'); }
+  function closeModal(){ const m=$('modal'); m.classList.add('hidden'); m.innerHTML=''; }
+  $('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+
+  function openPagoModal(b){
+    const s=subOf(b);
+    const opts=(ST.PLANES.length?ST.PLANES:[{clave:'basico',nombre:'Básico',precio_mxn:349},{clave:'pro',nombre:'Pro',precio_mxn:599},{clave:'multisucursal',nombre:'Multisucursal',precio_mxn:999}])
+      .map(p=>`<option value="${esc(p.clave)}" ${s&&s.plan===p.clave?'selected':''}>${esc(p.nombre)} — ${money(p.precio_mxn)}/mes</option>`).join('');
+    showModal(`
+      <h3>Registrar pago</h3>
+      <p class="muted">${esc(b.business_name||'')}</p>
+      <label class="flbl">Plan</label>
+      <select id="m_plan">${opts}</select>
+      <label class="flbl">Meses que paga</label>
+      <input id="m_meses" type="number" min="1" value="1">
+      <label class="flbl">Método de pago</label>
+      <select id="m_metodo"><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="mercadopago">Mercado Pago</option><option value="otro">Otro</option></select>
+      <div id="m_total" class="mtotal"></div>
+      <p id="m_err" class="msg err"></p>
+      <div class="mrow">
+        <button class="btn ghost" id="m_cancel">Cancelar</button>
+        <button class="btn" id="m_save">Registrar y generar recibo</button>
+      </div>`);
+    const precioPlan=pl=>(s&&s.precio_mxn!=null&&s.plan===pl)?Number(s.precio_mxn):planPrecio(pl);
+    const calc=()=>{ const me=parseInt($('m_meses').value)||0; $('m_total').textContent='Total: '+money(precioPlan($('m_plan').value)*me); };
+    $('m_plan').onchange=calc; $('m_meses').oninput=calc; calc();
+    $('m_cancel').onclick=closeModal;
+    $('m_save').onclick=async ()=>{
+      const plan=$('m_plan').value, meses=parseInt($('m_meses').value)||0, metodo=$('m_metodo').value;
+      if(meses<1){ $('m_err').textContent='Indica cuántos meses paga.'; return; }
+      $('m_save').disabled=true; $('m_err').textContent='';
+      const precioMes=precioPlan(plan);
+      const base=(s&&s.vence&&new Date(s.vence)>new Date())?new Date(s.vence):new Date();
+      const cubre=ymd(addMonths(base,meses)); const monto=precioMes*meses;
+      const p=await sb.from('pagos').insert({business_id:b.id, monto, metodo, cubre_hasta:cubre, nota:meses+' mes(es) · '+plan}).select();
+      if(p.error){ $('m_err').textContent='No se pudo registrar: '+p.error.message; $('m_save').disabled=false; return; }
+      try{ await updSub(b,{plan, estado:'activa', vence:cubre}); }catch(e){ $('m_err').textContent='Pago guardado, pero la suscripción no se actualizó: '+(e.message||e); }
+      await loadAll(); closeModal(); go('cliente',b.id);
+      if(p.data&&p.data[0]) genRecibo(p.data[0].id);
+    };
+  }
 
   async function registrarPago(b){
     const s=subOf(b);
