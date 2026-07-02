@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>SPES · Portal del cliente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  :root{ --bd:rgba(255,255,255,.12); --bd2:rgba(255,255,255,.07); --panel:rgba(255,255,255,.03); }
+  body{ font-family:Inter,system-ui,sans-serif; background:#000; color:#f5f5f5; -webkit-font-smoothing:antialiased; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  .hidden{ display:none !important; }
+  a{ color:inherit; }
+  input,select,textarea{ width:100%; padding:11px 13px; border:1px solid var(--bd); border-radius:11px; font-size:14px; margin-top:8px; background:rgba(255,255,255,.04); color:#fff; font-family:inherit; }
+  input::placeholder,textarea::placeholder{ color:rgba(255,255,255,.4); }
+  input:focus,select:focus,textarea:focus{ outline:none; border-color:rgba(255,255,255,.5); }
+  select option{ background:#111; }
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{ background:#fff; color:#000; border:0; border-radius:999px; padding:10px 18px; font-weight:700; font-size:14px; transition:transform .15s; }
+  .btn:hover{ transform:scale(1.03); } .btn.sm{ padding:6px 13px; font-size:12px; }
+  .btn.ghost{ background:transparent; color:#fff; border:1px solid var(--bd); }
+  .btn.ghost:hover{ background:rgba(255,255,255,.08); transform:none; }
+  .logo{ width:44px;height:44px;border-radius:12px;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:800;font-size:22px;margin:0 auto 14px; }
+  /* LOGIN */
+  #login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .loginbox{ width:100%; max-width:380px; padding:36px 30px; text-align:center; border:1px solid var(--bd); border-radius:20px; background:var(--panel); }
+  h1{ font-size:19px; font-weight:800; }
+  .muted{ color:rgba(255,255,255,.55); font-size:13px; }
+  .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:#f87171; } .ok{ color:#34d399; }
+  /* APP */
+  header{ border-bottom:1px solid var(--bd); padding:0 20px; position:sticky; top:0; background:rgba(0,0,0,.85); backdrop-filter:blur(14px); z-index:10; }
+  .hbar{ max-width:1000px; margin:0 auto; height:60px; display:flex; align-items:center; gap:12px; }
+  .hbar .brand{ display:flex; align-items:center; gap:9px; font-weight:700; font-size:14px; }
+  .hbar .brand .lg{ width:28px;height:28px;font-size:15px;border-radius:8px;margin:0; }
+  .hbar .sp{ margin-left:auto; }
+  .tabs{ max-width:1000px; margin:0 auto; display:flex; gap:4px; overflow-x:auto; }
+  .tabs a{ padding:11px 14px; font-size:13px; color:rgba(255,255,255,.6); text-decoration:none; white-space:nowrap; border-bottom:2px solid transparent; cursor:pointer; }
+  .tabs a:hover{ color:#fff; }
+  .tabs a.active{ color:#fff; border-bottom-color:#fff; font-weight:600; }
+  main{ max-width:1000px; margin:0 auto; padding:24px 20px 60px; }
+  h2{ font-size:20px; font-weight:800; letter-spacing:-.01em; margin-bottom:4px; }
+  .sub{ color:rgba(255,255,255,.55); font-size:14px; margin-bottom:18px; }
+  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media(max-width:760px){ .cards{ grid-template-columns:1fr; } }
+  .card{ border:1px solid var(--bd); border-radius:15px; padding:18px; background:var(--panel); }
+  .card .n{ font-size:22px; font-weight:800; } .card .l{ font-size:12px; color:rgba(255,255,255,.55); margin-top:3px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; } @media(max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:rgba(255,255,255,.5); padding:9px 10px; border-bottom:1px solid var(--bd); }
+  td{ padding:10px; border-bottom:1px solid var(--bd2); }
+  tr:last-child td{ border-bottom:0; }
+  .tag{ display:inline-block; font-size:11px; font-weight:700; padding:2px 10px; border-radius:999px; }
+  .t-ok{ background:rgba(52,211,153,.15); color:#34d399; } .t-warn{ background:rgba(251,191,36,.15); color:#fbbf24; }
+  .t-bad{ background:rgba(248,113,113,.15); color:#f87171; } .t-neutral{ background:rgba(255,255,255,.08); color:rgba(255,255,255,.7); }
+  .kv{ display:grid; grid-template-columns:150px 1fr; gap:8px 12px; font-size:14px; }
+  .kv dt{ color:rgba(255,255,255,.55); } .kv dd{ font-weight:600; }
+  .state{ padding:26px; text-align:center; color:rgba(255,255,255,.5); border:1px dashed var(--bd); border-radius:14px; }
+  .item{ border:1px solid var(--bd); border-radius:13px; padding:15px; margin-bottom:10px; background:var(--panel); }
+  .item h3{ font-size:15px; font-weight:700; }
+  .item .meta{ font-size:12px; color:rgba(255,255,255,.45); margin-top:2px; }
+  .sechead{ display:flex; align-items:center; gap:10px; margin-bottom:14px; } .sechead .sp{ margin-left:auto; }
+  /* MODAL */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .modal{ background:#0c0c0d; border:1px solid var(--bd); border-radius:16px; padding:24px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; }
+  .modal h3{ font-size:16px; font-weight:800; }
+  .flbl{ display:block; font-size:12px; color:rgba(255,255,255,.55); margin-top:12px; font-weight:600; }
+  .mrow{ display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+  .thread .m{ padding:10px 0; border-bottom:1px solid var(--bd2); }
+  .thread .who{ font-size:12px; color:rgba(255,255,255,.5); margin-bottom:3px; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="loginbox">
+    <div class="logo">S.</div>
+    <h1>Portal del cliente</h1>
+    <p class="muted">SPES Systems</p>
+    <form id="loginForm">
+      <input id="email" type="email" placeholder="Tu correo" required autocomplete="username">
+      <input id="password" type="password" placeholder="Tu contraseña" required autocomplete="current-password">
+      <button class="btn" style="width:100%;margin-top:14px" type="submit">Entrar</button>
+      <p id="loginMsg" class="msg"></p>
+    </form>
+    <p class="muted" style="margin-top:18px">¿Problemas para entrar? Escríbenos a <a href="mailto:contacspes@gmail.com" style="color:#fff">contacspes@gmail.com</a></p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="hbar">
+      <span class="brand"><span class="logo lg">S.</span> SPES · Portal</span>
+      <span class="sp"></span>
+      <span class="muted" id="who"></span>
+      <button class="btn ghost sm" id="logout">Salir</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+  </header>
+  <main id="content"></main>
+</div>
+
+<div id="modal" class="modal-overlay hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script>
+  const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
+  const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
+
+  const memStore={};
+  const safeStorage={
+    getItem:k=>{ try{ return localStorage.getItem(k); }catch(_){ return (k in memStore)?memStore[k]:null; } },
+    setItem:(k,v)=>{ try{ localStorage.setItem(k,v); }catch(_){ memStore[k]=String(v); } },
+    removeItem:k=>{ try{ localStorage.removeItem(k); }catch(_){ delete memStore[k]; } }
+  };
+  const sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storage:safeStorage}});
+
+  const $=id=>document.getElementById(id);
+  const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money=n=>'$'+(Math.round(Number(n)||0)).toLocaleString('es-MX');
+  function daysLeft(v){ if(!v) return null; return Math.ceil((new Date(v+'T00:00:00')-new Date(new Date().toDateString()))/86400000); }
+  function fdate(s){ try{ return new Date(s).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}); }catch(e){ return s||'—'; } }
+  function fdt(s){ try{ return new Date(s).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return s||'—'; } }
+
+  // ===== MODAL =====
+  function modalShell(inner){ const m=$('modal'); m.innerHTML='<div class="modal">'+inner+'</div>'; m.classList.remove('hidden'); }
+  function closeModal(){ const m=$('modal'); m.classList.add('hidden'); m.innerHTML=''; }
+  $('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+  function notify(msg,type){ modalShell('<h3>'+(type==='error'?'Atención':'Listo')+'</h3><p style="margin-top:8px;color:rgba(255,255,255,.7);font-size:14px">'+esc(msg)+'</p><div class="mrow"><button class="btn" id="m_ok">Entendido</button></div>'); $('m_ok').onclick=closeModal; }
+  function formModal(o){ o=o||{}; return new Promise(res=>{ let b=''; for(const f of o.fields){ b+='<label class="flbl">'+esc(f.label)+'</label>'; if(f.type==='select'){ b+='<select id="f_'+f.key+'">'+f.options.map(op=>{const v=(typeof op==='string')?op:op.value,l=(typeof op==='string')?op:op.label;return '<option value="'+esc(v)+'" '+(String(f.value)===String(v)?'selected':'')+'>'+esc(l)+'</option>';}).join('')+'</select>'; } else if(f.type==='textarea'){ b+='<textarea id="f_'+f.key+'" rows="'+(f.rows||3)+'">'+esc(f.value||'')+'</textarea>'; } else { b+='<input id="f_'+f.key+'" type="'+(f.type||'text')+'" value="'+esc(f.value==null?'':f.value)+'">'; } } modalShell('<h3>'+esc(o.title||'')+'</h3>'+b+'<p id="f_err" class="msg err"></p><div class="mrow"><button class="btn ghost" id="f_cancel">Cancelar</button><button class="btn" id="f_save">'+esc(o.submitLabel||'Guardar')+'</button></div>'); $('f_cancel').onclick=()=>{closeModal();res(null);}; $('f_save').onclick=()=>{ const vals={}; for(const f of o.fields) vals[f.key]=$('f_'+f.key).value; for(const f of o.fields){ if(f.required&&!String(vals[f.key]).trim()){ $('f_err').textContent='Completa: '+f.label; return; } } closeModal(); res(vals); }; }); }
+
+  // ===== AUTH =====
+  $('loginForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const m=$('loginMsg'); m.textContent='Entrando…'; m.className='msg';
+    try{
+      const { error }=await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
+      if(error){ const t=(error.message||'').toLowerCase(); m.textContent=t.includes('invalid login')?'Correo o contraseña incorrectos.':(t.includes('fetch')||t.includes('network')?'Sin conexión. Inténtalo de nuevo.':error.message); m.className='msg err'; }
+    }catch(err){ m.textContent='No se pudo iniciar sesión.'; m.className='msg err'; }
+  });
+  async function cerrarSesion(){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){ } try{ Object.keys(localStorage).filter(k=>k.indexOf('sb-')===0).forEach(k=>localStorage.removeItem(k)); }catch(_){ } showLogin(); }
+  $('logout').addEventListener('click', cerrarSesion);
+  sb.auth.onAuthStateChange((ev,ses)=>{ if(ev==='INITIAL_SESSION') return; if(!ses||ev==='SIGNED_OUT'){ showLogin(); return; } enter(ses); });
+  (async ()=>{ try{ const {data}=await sb.auth.getSession(); if(!data||!data.session){ showLogin(); return; } const {error}=await sb.auth.getUser(); if(error){ await cerrarSesion(); } else enter(data.session); }catch(_){ await cerrarSesion(); } })();
+  function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
+
+  // ===== STATE =====
+  const ST={ uid:null, email:'', tab:'inicio', biz:null, sub:null, PAGOS:[], TICKETS:[], TMSGS:[], ANUNCIOS:[], VERSIONES:[], KB:[], PLANES:[], ticketId:null };
+  const TABS=[ ['inicio','Inicio'],['suscripcion','Mi suscripción'],['recibos','Recibos'],['soporte','Soporte'],['novedades','Novedades'],['ayuda','Ayuda'] ];
+
+  async function enter(session){
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    ST.uid=session.user.id; ST.email=session.user.email; $('who').textContent=session.user.email;
+    await loadPortal();
+    renderTabs(); render();
+  }
+  async function loadPortal(){
+    const uid=ST.uid;
+    try{
+      const [biz,sub,pg,tk,an,ve,kb,pl]=await Promise.all([
+        sb.from('businesses').select('*').eq('id',uid).maybeSingle(),
+        sb.from('subscriptions').select('*').eq('business_id',uid).maybeSingle(),
+        sb.from('pagos').select('*').eq('business_id',uid).order('fecha',{ascending:false}),
+        sb.from('tickets').select('*').eq('business_id',uid).order('updated_at',{ascending:false}),
+        sb.from('anuncios').select('*').eq('publicado',true).order('created_at',{ascending:false}),
+        sb.from('versiones').select('*').eq('publicada',true).order('created_at',{ascending:false}),
+        sb.from('kb_articulos').select('*').eq('publicado',true).order('created_at',{ascending:false}),
+        sb.from('planes').select('*').eq('activo',true)
+      ]);
+      ST.biz=biz.data||null; ST.sub=sub.data||null;
+      ST.PAGOS=(pg.data||[]).map(x=>({...x,created_at:x.created_at||x.fecha}));
+      ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.VERSIONES=ve.data||[]; ST.KB=kb.data||[]; ST.PLANES=pl.data||[];
+    }catch(e){ /* se maneja en render */ }
+  }
+  const planNombre=cl=>{ const p=ST.PLANES.find(x=>x.clave===cl); return p?p.nombre:(cl||'—'); };
+  const precioSub=()=>{ const s=ST.sub; if(!s) return 0; if(s.precio_mxn!=null) return Number(s.precio_mxn); const p=ST.PLANES.find(x=>x.clave===s.plan); return p?Number(p.precio_mxn):0; };
+
+  function renderTabs(){ $('tabs').innerHTML=TABS.map(t=>'<a data-tab="'+t[0]+'" class="'+(ST.tab===t[0]?'active':'')+'">'+esc(t[1])+'</a>').join(''); }
+  $('tabs').addEventListener('click',e=>{ const a=e.target.closest('a[data-tab]'); if(!a) return; go(a.dataset.tab); });
+  function go(tab,ticketId){ ST.tab=tab; ST.ticketId=ticketId||null; renderTabs(); render(); window.scrollTo(0,0); }
+
+  function render(){
+    const c=$('content');
+    if(!ST.biz && ST.tab!=='soporte' && ST.tab!=='ayuda' && ST.tab!=='novedades'){
+      // sin ficha de negocio (p.ej. cuenta sin businesses)
+    }
+    switch(ST.tab){
+      case 'inicio': return rInicio(c);
+      case 'suscripcion': return rSuscripcion(c);
+      case 'recibos': return rRecibos(c);
+      case 'soporte': return ST.ticketId?rTicket(c):rSoporte(c);
+      case 'novedades': return rNovedades(c);
+      case 'ayuda': return rAyuda(c);
+      default: return rInicio(c);
+    }
+  }
+
+  function subEstadoTag(){
+    const s=ST.sub; if(!s) return '<span class="tag t-neutral">sin suscripción</span>';
+    const dl=daysLeft(s.vence);
+    if(s.estado==='suspendida'||s.estado==='cancelada') return '<span class="tag t-bad">'+esc(s.estado)+'</span>';
+    if(dl!=null&&dl<0) return '<span class="tag t-bad">vencida</span>';
+    if(dl!=null&&dl<=7) return '<span class="tag t-warn">por vencer</span>';
+    return '<span class="tag t-ok">'+esc(s.estado||'activa')+'</span>';
+  }
+
+  // ===== INICIO =====
+  function rInicio(c){
+    const nombre=ST.biz?(ST.biz.business_name||'tu negocio'):'tu negocio';
+    const s=ST.sub, dl=s?daysLeft(s.vence):null;
+    const tkAb=ST.TICKETS.filter(t=>!['resuelto','cerrado'].includes(t.estado)).length;
+    c.innerHTML=`
+      <h2>Hola, ${esc(nombre)} 👋</h2>
+      <p class="sub">Este es tu portal para administrar tu cuenta SPES.</p>
+      <div class="cards">
+        <div class="card"><div class="l">Suscripción</div><div style="margin-top:6px">${subEstadoTag()}</div><div class="l" style="margin-top:8px">${s?('Plan '+esc(planNombre(s.plan))):'—'}</div></div>
+        <div class="card"><div class="n">${s&&s.vence?fdate(s.vence):'—'}</div><div class="l">Vence${dl!=null?' · '+(dl<0?'vencida':dl+' días'):''}</div></div>
+        <div class="card"><div class="n">${tkAb}</div><div class="l">Tickets abiertos</div></div>
+      </div>
+      <div class="grid2" style="margin-top:20px">
+        <div class="card"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Accesos rápidos</h3></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="btn ghost sm" data-goto="suscripcion">Ver suscripción</button>
+            <button class="btn ghost sm" data-goto="recibos">Mis recibos</button>
+            <button class="btn ghost sm" data-goto="soporte">Soporte</button>
+            <button class="btn ghost sm" data-goto="novedades">Novedades</button>
+          </div>
+        </div>
+        <div class="card"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Último anuncio</h3></div>
+          ${ST.ANUNCIOS.length?('<b>'+esc(ST.ANUNCIOS[0].titulo)+'</b><p class="muted" style="margin-top:6px">'+esc(ST.ANUNCIOS[0].cuerpo||'')+'</p>'):'<p class="muted">Sin anuncios por ahora.</p>'}
+        </div>
+      </div>`;
+    c.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
+  }
+
+  // ===== SUSCRIPCIÓN =====
+  function rSuscripcion(c){
+    const s=ST.sub, dl=s?daysLeft(s.vence):null;
+    if(!s){ c.innerHTML='<h2>Mi suscripción</h2><p class="sub">Estado de tu plan.</p><div class="state">Aún no tienes una suscripción registrada. Escríbenos para activarla.</div>'; return; }
+    c.innerHTML=`
+      <h2>Mi suscripción</h2><p class="sub">Estado de tu plan SPES.</p>
+      <div class="card" style="max-width:520px">
+        <dl class="kv">
+          <dt>Plan</dt><dd>${esc(planNombre(s.plan))}</dd>
+          <dt>Estado</dt><dd>${subEstadoTag()}</dd>
+          <dt>Precio</dt><dd>${money(precioSub())} / mes</dd>
+          <dt>Vence</dt><dd>${s.vence?fdate(s.vence):'—'}${dl!=null?' ('+(dl<0?'vencida':dl+' días')+')':''}</dd>
+        </dl>
+        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+          <a class="btn" href="mailto:contacspes@gmail.com?subject=Renovar%20suscripci%C3%B3n%20SPES">Renovar / pagar</a>
+          <button class="btn ghost" data-goto="recibos">Ver recibos</button>
+        </div>
+        <p class="muted" style="margin-top:14px">Para cambiar de plan o método de pago, escríbenos y te ayudamos. (El autoservicio de pagos llegará pronto.)</p>
+      </div>`;
+    c.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
+  }
+
+  // ===== RECIBOS =====
+  function rRecibos(c){
+    c.innerHTML='<h2>Recibos</h2><p class="sub">Descarga el comprobante de cada pago.</p>'+(ST.PAGOS.length?'':'<div class="state">Aún no tienes pagos registrados.</div>');
+    if(!ST.PAGOS.length) return;
+    let h='<div class="card" style="padding:6px 12px"><table><thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Cubre hasta</th><th></th></tr></thead><tbody>';
+    for(const p of ST.PAGOS) h+=`<tr><td>${fdate(p.created_at)}</td><td><strong>${money(p.monto)}</strong></td><td>${esc(p.metodo||'—')}</td><td>${p.cubre_hasta?fdate(p.cubre_hasta):'—'}</td><td style="text-align:right"><button class="btn ghost sm" data-recibo="${p.id}">Recibo PDF</button></td></tr>`;
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div>');
+    c.querySelectorAll('[data-recibo]').forEach(b=>b.addEventListener('click',()=>genRecibo(b.dataset.recibo)));
+  }
+
+  // ===== SOPORTE =====
+  const EST_TK={abierto:'t-warn',en_proceso:'t-warn',esperando:'t-neutral',resuelto:'t-ok',cerrado:'t-neutral'};
+  function tkTag(e){ return '<span class="tag '+(EST_TK[e]||'t-neutral')+'">'+esc((e||'').replace('_',' '))+'</span>'; }
+  function rSoporte(c){
+    c.innerHTML=`<div class="sechead"><h2>Soporte</h2><span class="sp"></span><button class="btn sm" id="newTk">Nuevo ticket</button></div>
+      <p class="sub">Abre un ticket y da seguimiento a tus solicitudes.</p>`;
+    if(!ST.TICKETS.length){ c.insertAdjacentHTML('beforeend','<div class="state">No tienes tickets. Crea uno con "Nuevo ticket".</div>'); }
+    else { for(const t of ST.TICKETS){ c.insertAdjacentHTML('beforeend',`<div class="item" data-tk="${t.id}" style="cursor:pointer"><div style="display:flex;align-items:center;gap:10px"><h3>${esc(t.asunto)}</h3>${tkTag(t.estado)}<span class="sp" style="margin-left:auto"></span><span class="meta">${fdate(t.updated_at)}</span></div></div>`); } }
+    $('newTk').addEventListener('click', nuevoTicket);
+    c.querySelectorAll('[data-tk]').forEach(el=>el.addEventListener('click',()=>openTicket(el.dataset.tk)));
+  }
+  async function nuevoTicket(){
+    const v=await formModal({title:'Nuevo ticket', fields:[{key:'asunto',label:'Asunto',value:'',required:true},{key:'prioridad',label:'Prioridad',type:'select',value:'media',options:['baja','media','alta','urgente']},{key:'mensaje',label:'Cuéntanos qué pasa',type:'textarea',value:'',rows:4}], submitLabel:'Enviar'});
+    if(!v) return;
+    const ins=await sb.from('tickets').insert({business_id:ST.uid, asunto:v.asunto, prioridad:v.prioridad, canal:'portal'}).select();
+    if(ins.error){ notify('No se pudo crear el ticket: '+ins.error.message,'error'); return; }
+    if(v.mensaje && ins.data && ins.data[0]) await sb.from('ticket_mensajes').insert({ticket_id:ins.data[0].id, autor:ST.email, autor_tipo:'cliente', cuerpo:v.mensaje});
+    await loadPortal(); go('soporte'); notify('¡Ticket enviado! Te responderemos pronto.','ok');
+  }
+  async function openTicket(id){ const {data}=await sb.from('ticket_mensajes').select('*').eq('ticket_id',id).order('created_at',{ascending:true}); ST.TMSGS=data||[]; go('soporte',id); }
+  function rTicket(c){
+    const t=ST.TICKETS.find(x=>x.id===ST.ticketId);
+    if(!t){ c.innerHTML='<div class="state">Ticket no encontrado.</div>'; return; }
+    c.innerHTML=`<a class="muted" id="backTk" style="cursor:pointer">‹ Volver a soporte</a>
+      <div class="sechead" style="margin-top:10px"><h2>${esc(t.asunto)}</h2>${tkTag(t.estado)}</div>
+      <div class="card thread">${ST.TMSGS.length?ST.TMSGS.map(m=>`<div class="m"><div class="who">${esc(m.autor_tipo==='cliente'?'Tú':'Soporte SPES')} · ${fdt(m.created_at)}</div><div>${esc(m.cuerpo)}</div></div>`).join(''):'<p class="muted">Sin mensajes todavía.</p>'}
+        <div style="display:flex;gap:8px;margin-top:12px"><input id="rep" placeholder="Escribe un mensaje…" style="margin:0"><button class="btn" id="send">Enviar</button></div>
+      </div>`;
+    $('backTk').onclick=()=>go('soporte');
+    $('send').onclick=async ()=>{ const v=$('rep').value.trim(); if(!v) return; const {error}=await sb.from('ticket_mensajes').insert({ticket_id:t.id,autor:ST.email,autor_tipo:'cliente',cuerpo:v}); if(error){ notify('No se pudo enviar: '+error.message,'error'); return; } await openTicket(t.id); };
+  }
+
+  // ===== NOVEDADES =====
+  function rNovedades(c){
+    c.innerHTML='<h2>Novedades</h2><p class="sub">Anuncios y nuevas versiones de SPES.</p>';
+    let h='<div class="grid2"><div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Anuncios</h3>';
+    h+= ST.ANUNCIOS.length?ST.ANUNCIOS.map(a=>`<div class="item"><h3>${esc(a.titulo)}</h3><div class="meta">${fdate(a.created_at)}</div>${a.cuerpo?'<p class="muted" style="margin-top:6px">'+esc(a.cuerpo)+'</p>':''}</div>`).join(''):'<div class="state">Sin anuncios.</div>';
+    h+='</div><div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Versiones</h3>';
+    h+= ST.VERSIONES.length?ST.VERSIONES.map(v=>`<div class="item"><h3>v${esc(v.version)}${v.titulo?' · '+esc(v.titulo):''}</h3><div class="meta">${fdate(v.created_at)}</div>${v.cambios?'<ul class="muted" style="margin:8px 0 0 16px">'+String(v.cambios).split('\n').filter(x=>x.trim()).map(x=>'<li>'+esc(x.replace(/^[-*✓\s]+/,''))+'</li>').join('')+'</ul>':''}</div>`).join(''):'<div class="state">Sin versiones publicadas.</div>';
+    h+='</div></div>';
+    c.insertAdjacentHTML('beforeend',h);
+  }
+
+  // ===== AYUDA =====
+  function rAyuda(c){
+    c.innerHTML='<h2>Ayuda</h2><p class="sub">Guías y respuestas frecuentes.</p>';
+    if(!ST.KB.length){ c.insertAdjacentHTML('beforeend','<div class="state">Aún no hay artículos.</div>'); return; }
+    for(const a of ST.KB) c.insertAdjacentHTML('beforeend',`<div class="item"><h3>${esc(a.titulo)}</h3>${a.categoria?'<div class="meta">'+esc(a.categoria)+'</div>':''}${a.contenido?'<p class="muted" style="margin-top:8px;white-space:pre-wrap">'+esc(a.contenido)+'</p>':''}</div>`);
+  }
+
+  // ===== RECIBO PDF =====
+  let _jsp=null;
+  function ensureJsPDF(){ const get=()=>(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF||null; if(get()) return Promise.resolve(get()); if(_jsp) return _jsp; _jsp=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'; s.onload=()=>{ const g=get(); g?res(g):rej(new Error('jsPDF no expuso el módulo')); }; s.onerror=()=>rej(new Error('No se pudo cargar jsPDF')); document.head.appendChild(s); }); return _jsp; }
+  async function genRecibo(pid){
+    const p=ST.PAGOS.find(x=>x.id===pid); if(!p) return;
+    let JS; try{ JS=await ensureJsPDF(); }catch(e){ notify('No se pudo cargar el generador de PDF: '+(e.message||e),'error'); return; }
+    try{
+      const b=ST.biz||{}; const doc=new JS();
+      doc.setFontSize(20); doc.text('SPES Systems',20,22);
+      doc.setFontSize(10); doc.setTextColor(120); doc.text('spessystems.com · Recibo de pago',20,28); doc.setTextColor(0);
+      const folio='REC-'+String(p.id).slice(0,8).toUpperCase(); let y=46; doc.setFontSize(11);
+      const line=(k,v)=>{ doc.setTextColor(120); doc.text(k,20,y); doc.setTextColor(0); doc.text(String(v||'—'),75,y); y+=8; };
+      line('Folio',folio); line('Fecha',fdate(p.created_at)); line('Cliente',b.business_name||'—');
+      if(b.razon_social) line('Razón social',b.razon_social); if(b.rfc) line('RFC',b.rfc);
+      line('Concepto',p.nota||'Suscripción SPES'); line('Método',p.metodo||'—'); line('Cubre hasta',p.cubre_hasta?fdate(p.cubre_hasta):'—');
+      y+=4; doc.setDrawColor(220); doc.line(20,y,190,y); y+=12; doc.setFontSize(15); doc.text('Total: '+money(p.monto),20,y);
+      y+=18; doc.setFontSize(9); doc.setTextColor(140); doc.text('Comprobante de pago, no es una factura fiscal (CFDI).',20,y);
+      doc.save(folio+'.pdf');
+    }catch(e){ notify('Error al generar el PDF: '+(e.message||e),'error'); }
+  }
+</script>
+</body>
+</html>
