@@ -655,6 +655,41 @@
     }catch(e){ notify('Error al generar el PDF: '+(e.message||e),'error'); }
   }
 
+  // ===== MENSAJES / CRM =====
+  const EST_MSG=['nuevo','leido','en proceso','respondido','archivado'];
+  function msgTag(e){ const k=(e||'nuevo').replace(' ',''); const map={nuevo:'t-nuevo',leido:'t-leido',enproceso:'t-proceso',respondido:'t-respondido',archivado:'t-archivado'}; return '<span class="tag '+(map[k]||'t-none')+'">'+esc(e||'nuevo')+'</span>'; }
+  function renderMensajes(c,mode){
+    let list=ST.LEADS.slice();
+    if(mode==='prospectos') list=list.filter(l=>['en proceso','leido'].includes(l.estado));
+    if(!list.length){ c.innerHTML='<div class="card state">Sin mensajes'+(mode==='prospectos'?' en seguimiento':'')+'.</div>'; return; }
+    let h=`<p class="hint">${mode==='prospectos'?'Mensajes que estás trabajando (leídos / en proceso).':'Mensajes del sitio como mini-CRM: cambia estado, asigna responsable y agrega notas.'}</p>
+      <table><thead><tr><th>Contacto</th><th>Mensaje</th><th>Estado</th><th>Responsable</th><th>Fecha</th><th></th></tr></thead><tbody>`;
+    for(const l of list){
+      h+=`<tr>
+        <td><strong>${esc(l.nombre||'—')}</strong><br><span class="muted">${esc(l.correo||'')}${l.negocio?' · '+esc(l.negocio):''}</span></td>
+        <td style="max-width:260px">${esc(l.mensaje||'—')}</td>
+        <td>${msgTag(l.estado)}</td>
+        <td>${esc(l.responsable||'—')}${l.notas?'<br><span class="muted" style="font-size:11px">'+esc(String(l.notas).slice(0,40))+'</span>':''}</td>
+        <td class="muted">${fdate(l.created_at)}</td>
+        <td><div class="row-actions">
+          <select data-est="${l.id}" style="margin:0;width:auto;padding:5px 8px;font-size:12px">${EST_MSG.map(e=>`<option ${l.estado===e?'selected':''}>${e}</option>`).join('')}</select>
+          <button class="btn sm ghost" data-resp="${l.id}">Responsable</button>
+          <button class="btn sm ghost" data-nota="${l.id}">Nota</button>
+        </div></td>
+      </tr>`;
+    }
+    c.innerHTML=h+'</tbody></table>';
+    c.querySelectorAll('[data-est]').forEach(sel=>sel.addEventListener('change', async ()=>{ await updLead(sel.dataset.est,{estado:sel.value}); }));
+    c.querySelectorAll('[data-resp]').forEach(btn=>btn.addEventListener('click', async ()=>{ const l=ST.LEADS.find(x=>x.id===btn.dataset.resp); const v=await formModal({title:'Responsable',fields:[{key:'responsable',label:'Asignar a',value:l.responsable||ST.email}],submitLabel:'Guardar'}); if(!v) return; await updLead(btn.dataset.resp,{responsable:v.responsable||null}); }));
+    c.querySelectorAll('[data-nota]').forEach(btn=>btn.addEventListener('click', async ()=>{ const l=ST.LEADS.find(x=>x.id===btn.dataset.nota); const v=await formModal({title:'Nota interna',fields:[{key:'notas',label:'Nota',type:'textarea',value:l.notas||''}],submitLabel:'Guardar'}); if(!v) return; await updLead(btn.dataset.nota,{notas:v.notas||null}); }));
+  }
+  async function updLead(id,patch){
+    const { data,error }=await sb.from('leads').update(patch).eq('id',id).select();
+    if(error){ notify('No se pudo actualizar: '+error.message,'error'); return; }
+    const i=ST.LEADS.findIndex(x=>x.id===id); if(i>=0&&data&&data[0]) ST.LEADS[i]=data[0];
+    render();
+  }
+
   // ===== PLANES =====
   function renderPlanes(c){
     let h=`<div class="sechead"><h2>Planes</h2><span class="sp"></span><button class="btn sm" id="newPlan">Nuevo plan</button></div>
