@@ -550,6 +550,11 @@ tailwind.config = {
         <input required name="negocio" placeholder="Tu negocio" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       </div>
       <input required type="email" name="correo" placeholder="Tu correo" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+      <div class="grid sm:grid-cols-2 gap-4">
+        <input name="telefono" placeholder="Teléfono (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+        <input name="ciudad" placeholder="Ciudad (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+      </div>
+      <input name="industria" placeholder="Giro / industria (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       <textarea name="mensaje" rows="3" placeholder="¿En qué te ayudamos?" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition"></textarea>
       <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
       <div class="cf-turnstile flex justify-center" data-sitekey="0x4AAAAAADkGkS8LBw02W1fz" data-theme="dark"></div>
@@ -687,6 +692,9 @@ tailwind.config = {
           nombre:(f.nombre.value||'').trim(),
           negocio:(f.negocio.value||'').trim()||null,
           correo:(f.correo.value||'').trim(),
+          telefono:(f.telefono.value||'').trim()||null,
+          ciudad:(f.ciudad.value||'').trim()||null,
+          industria:(f.industria.value||'').trim()||null,
           mensaje:(f.mensaje.value||'').trim()||null,
           origen:'web', token:tk
         })

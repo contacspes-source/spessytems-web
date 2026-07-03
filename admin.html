@@ -260,7 +260,7 @@
   // ===== STATE =====
   const ST = { view:'dashboard', clienteId:null, param:null, isPrincipal:false, email:'',
     NEGOCIOS:[], LEADS:[], PAGOS:[], ADMINS:[], VERSIONES:[], NOTAS:[], PLANES:[],
-    TICKETS:[], TMSGS:[], ANUNCIOS:[], KB:[] };
+    TICKETS:[], TMSGS:[], ANUNCIOS:[], KB:[], CONFIG:null };
 
   const NAV = [
     { items:[ {id:'dashboard',label:'Dashboard'} ] },
@@ -272,7 +272,7 @@
     { group:'Marketing', items:[ {id:'leads',label:'Leads'},{id:'formularios',label:'Formularios',soon:1},{id:'newsletter',label:'Newsletter',soon:1} ] },
     { group:'Analíticas', items:[ {id:'an_ventas',label:'Ventas',soon:1},{id:'an_ingresos',label:'Ingresos',soon:1},{id:'an_churn',label:'Churn',soon:1},{id:'an_conv',label:'Conversión',soon:1},{id:'an_uso',label:'Uso del sistema',soon:1} ] },
     { group:'Infraestructura', items:[ {id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
-    { group:'Configuración', items:[ {id:'cfg_empresa',label:'Empresa',soon:1},{id:'cfg_branding',label:'Branding',soon:1},{id:'cfg_correos',label:'Correos',soon:1},{id:'cfg_api',label:'API',soon:1},{id:'cfg_integraciones',label:'Integraciones',soon:1} ] },
+    { group:'Configuración', items:[ {id:'cfg_empresa',label:'Empresa'},{id:'cfg_branding',label:'Branding',soon:1},{id:'cfg_correos',label:'Correos',soon:1},{id:'cfg_api',label:'API',soon:1},{id:'cfg_integraciones',label:'Integraciones',soon:1} ] },
     { items:[ {id:'cuenta',label:'Cuenta'} ] }
   ];
   const LABEL = {};
@@ -311,7 +311,7 @@
 
   async function loadAll(){
     try{
-      const [b,s,p,l,ad,ve,pl,tk,an,kb,nt] = await Promise.all([
+      const [b,s,p,l,ad,ve,pl,tk,an,kb,nt,cfg] = await Promise.all([
         sb.from('businesses').select('*').order('created_at',{ascending:true}),
         sb.from('subscriptions').select('*'),
         sb.from('pagos').select('*').order('fecha',{ascending:false}).limit(500),
@@ -322,13 +322,14 @@
         sb.from('tickets').select('*').order('updated_at',{ascending:false}),
         sb.from('anuncios').select('*').order('created_at',{ascending:false}),
         sb.from('kb_articulos').select('*').order('created_at',{ascending:false}),
-        sb.from('notas_cliente').select('*').order('created_at',{ascending:false})
+        sb.from('notas_cliente').select('*').order('created_at',{ascending:false}),
+        sb.from('config').select('*').maybeSingle()
       ]);
       if(b.error) throw b.error;
       const subByB={}; (s.data||[]).forEach(x=>{ subByB[x.business_id]=x; });
       ST.NEGOCIOS=(b.data||[]).map(x=>({ ...x, subscriptions: subByB[x.id]?[subByB[x.id]]:[] }));
       ST.PAGOS=(p.data||[]).map(x=>({ ...x, created_at: x.created_at || x.fecha })); ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[]; ST.PLANES=pl.data||[];
-      ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.KB=kb.data||[]; ST.NOTAS=nt.data||[];
+      ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.KB=kb.data||[]; ST.NOTAS=nt.data||[]; ST.CONFIG=cfg.data||null;
     }catch(e){ $('content').innerHTML='<div class="card state" style="color:#dc2626">Error al cargar: '+esc(e.message||String(e))+'</div>'; }
   }
   const nameOf = bid => { const b=ST.NEGOCIOS.find(x=>x.id===bid); return b?(b.business_name||'(sin nombre)'):'—'; };
@@ -355,6 +356,7 @@
       case 'actualizaciones': return renderActualizaciones(c);
       case 'licencias': return renderLicencias(c);
       case 'administradores': return renderAdmins(c);
+      case 'cfg_empresa': return renderConfigEmpresa(c);
       case 'cuenta': return renderCuenta(c);
       default: return renderSoon(c);
     }
@@ -473,6 +475,8 @@
         ${A('prueba','Reiniciar prueba')}
         ${s&&s.estado==='suspendida'?A('reactivar','Reactivar'):A('suspender','Suspender')}
         ${A('editar','Editar datos')}
+        ${A('mensaje','Enviar mensaje')}
+        ${A('vercliente','Ver como cliente')}
         ${b.archivado?A('desarchivar','Desarchivar'):A('archivar','Archivar')}
         ${ST.isPrincipal?A('eliminar','Eliminar','danger'):''}
       </div>
@@ -516,6 +520,8 @@
   async function accionCliente(act,b){
     const s=subOf(b);
     if(act==='pago') return openPagoModal(b);
+    if(act==='vercliente') return verComoCliente(b);
+    if(act==='mensaje') return enviarMensajeCliente(b);
     if(act==='plan'){
       const v=await formModal({title:'Cambiar plan', subtitle:esc(b.business_name||''), fields:[{key:'plan',label:'Plan',type:'select',value:s?s.plan:'basico',options:planOptions()}], submitLabel:'Cambiar'});
       if(!v) return; if(!(await updSub(b,{plan:v.plan}))) return;
@@ -636,8 +642,8 @@
     try{ JS=await ensureJsPDF(); }catch(e){ notify('No se pudo cargar el generador de PDF: '+(e.message||e),'error'); return; }
     try{
     const b=ST.NEGOCIOS.find(x=>x.id===p.business_id)||{};
-    const doc=new JS();
-    doc.setFontSize(20); doc.text('SPES Systems',20,22);
+    const doc=new JS(); const emp=ST.CONFIG||{};
+    doc.setFontSize(20); doc.text(emp.empresa_nombre||'SPES Systems',20,22);
     doc.setFontSize(10); doc.setTextColor(120); doc.text('spessystems.com · Recibo de pago',20,28); doc.setTextColor(0);
     const folio='REC-'+String(p.id).slice(0,8).toUpperCase();
     let y=46; doc.setFontSize(11);
@@ -655,6 +661,34 @@
     }catch(e){ notify('Error al generar el PDF: '+(e.message||e),'error'); }
   }
 
+  // ===== ACCIONES EXTRA DE CLIENTE =====
+  function verComoCliente(b){
+    const s=subOf(b); const dl=s?daysLeft(s.vence):null;
+    const pagos=ST.PAGOS.filter(p=>p.business_id===b.id);
+    const tks=ST.TICKETS.filter(t=>t.business_id===b.id);
+    modalShell(`
+      <h3>Vista del cliente (previa)</h3>
+      <p class="muted">Resumen de lo que ve ${esc(b.business_name||'')} en su portal.</p>
+      <dl class="kv" style="margin-top:12px">
+        <dt>Suscripción</dt><dd>${s?esc(s.estado):'—'}</dd>
+        <dt>Plan</dt><dd>${s?esc(s.plan):'—'}</dd>
+        <dt>Vence</dt><dd>${s?fdate(s.vence)+(dl!=null?' ('+(dl<0?'vencida':dl+' d')+')':''):'—'}</dd>
+        <dt>Recibos</dt><dd>${pagos.length}</dd>
+        <dt>Tickets</dt><dd>${tks.length}</dd>
+      </dl>
+      <p class="muted" style="margin-top:12px;font-size:12px">Vista de solo lectura. El acceso real del cliente es spessystems.com/portal.</p>
+      <div class="mrow"><button class="btn" id="vc_ok">Cerrar</button></div>`);
+    $('vc_ok').onclick=closeModal;
+  }
+  async function enviarMensajeCliente(b){
+    const v=await formModal({title:'Enviar mensaje al cliente', subtitle:esc(b.business_name||''), fields:[{key:'asunto',label:'Asunto',value:'Mensaje de SPES',required:true},{key:'cuerpo',label:'Mensaje',type:'textarea',value:'',required:true,rows:4}], submitLabel:'Enviar'});
+    if(!v) return;
+    const ins=await sb.from('tickets').insert({business_id:b.id, asunto:v.asunto, prioridad:'media', canal:'panel', asignado:ST.email}).select();
+    if(ins.error) return notify('No se pudo enviar: '+ins.error.message,'error');
+    if(ins.data&&ins.data[0]) await sb.from('ticket_mensajes').insert({ticket_id:ins.data[0].id, autor:ST.email, autor_tipo:'admin', cuerpo:v.cuerpo});
+    await loadAll(); render(); notify('Mensaje enviado. El cliente lo verá en su portal (Soporte).','ok');
+  }
+
   // ===== MENSAJES / CRM =====
   const EST_MSG=['nuevo','leido','en proceso','respondido','archivado'];
   function msgTag(e){ const k=(e||'nuevo').replace(' ',''); const map={nuevo:'t-nuevo',leido:'t-leido',enproceso:'t-proceso',respondido:'t-respondido',archivado:'t-archivado'}; return '<span class="tag '+(map[k]||'t-none')+'">'+esc(e||'nuevo')+'</span>'; }
@@ -662,26 +696,52 @@
     let list=ST.LEADS.slice();
     if(mode==='prospectos') list=list.filter(l=>['en proceso','leido'].includes(l.estado));
     if(!list.length){ c.innerHTML='<div class="card state">Sin mensajes'+(mode==='prospectos'?' en seguimiento':'')+'.</div>'; return; }
-    let h=`<p class="hint">${mode==='prospectos'?'Mensajes que estás trabajando (leídos / en proceso).':'Mensajes del sitio como mini-CRM: cambia estado, asigna responsable y agrega notas.'}</p>
+    let h=`<p class="hint">${mode==='prospectos'?'Mensajes en seguimiento (leídos / en proceso).':'Mensajes del sitio como mini-CRM. Abre "Detalle" para editar datos, asignar y convertir en cliente.'}</p>
       <table><thead><tr><th>Contacto</th><th>Mensaje</th><th>Estado</th><th>Responsable</th><th>Fecha</th><th></th></tr></thead><tbody>`;
     for(const l of list){
       h+=`<tr>
         <td><strong>${esc(l.nombre||'—')}</strong><br><span class="muted">${esc(l.correo||'')}${l.negocio?' · '+esc(l.negocio):''}</span></td>
-        <td style="max-width:260px">${esc(l.mensaje||'—')}</td>
-        <td>${msgTag(l.estado)}</td>
-        <td>${esc(l.responsable||'—')}${l.notas?'<br><span class="muted" style="font-size:11px">'+esc(String(l.notas).slice(0,40))+'</span>':''}</td>
+        <td style="max-width:240px">${esc(String(l.mensaje||'—').slice(0,80))}</td>
+        <td>${msgTag(l.estado)}${l.convertido_business_id?' <span class="tag t-activa">cliente</span>':''}</td>
+        <td>${esc(l.responsable||'—')}</td>
         <td class="muted">${fdate(l.created_at)}</td>
-        <td><div class="row-actions">
-          <select data-est="${l.id}" style="margin:0;width:auto;padding:5px 8px;font-size:12px">${EST_MSG.map(e=>`<option ${l.estado===e?'selected':''}>${e}</option>`).join('')}</select>
-          <button class="btn sm ghost" data-resp="${l.id}">Responsable</button>
-          <button class="btn sm ghost" data-nota="${l.id}">Nota</button>
-        </div></td>
+        <td style="text-align:right"><button class="btn sm" data-msg="${l.id}">Detalle ›</button></td>
       </tr>`;
     }
     c.innerHTML=h+'</tbody></table>';
-    c.querySelectorAll('[data-est]').forEach(sel=>sel.addEventListener('change', async ()=>{ await updLead(sel.dataset.est,{estado:sel.value}); }));
-    c.querySelectorAll('[data-resp]').forEach(btn=>btn.addEventListener('click', async ()=>{ const l=ST.LEADS.find(x=>x.id===btn.dataset.resp); const v=await formModal({title:'Responsable',fields:[{key:'responsable',label:'Asignar a',value:l.responsable||ST.email}],submitLabel:'Guardar'}); if(!v) return; await updLead(btn.dataset.resp,{responsable:v.responsable||null}); }));
-    c.querySelectorAll('[data-nota]').forEach(btn=>btn.addEventListener('click', async ()=>{ const l=ST.LEADS.find(x=>x.id===btn.dataset.nota); const v=await formModal({title:'Nota interna',fields:[{key:'notas',label:'Nota',type:'textarea',value:l.notas||''}],submitLabel:'Guardar'}); if(!v) return; await updLead(btn.dataset.nota,{notas:v.notas||null}); }));
+    c.querySelectorAll('[data-msg]').forEach(b=>b.addEventListener('click',()=>openMensaje(b.dataset.msg)));
+  }
+  function openMensaje(id){
+    const l=ST.LEADS.find(x=>x.id===id); if(!l) return;
+    modalShell(`
+      <h3>${esc(l.nombre||'—')}</h3>
+      <p class="muted">${esc(l.correo||'')}${l.negocio?' · '+esc(l.negocio):''}</p>
+      ${l.mensaje?'<p style="margin-top:10px;font-size:14px">'+esc(l.mensaje)+'</p>':''}
+      <div style="margin-top:6px;font-size:12px;color:#71717a">Recibido ${fdate(l.created_at)} · Origen: ${esc(l.origen||'web')}</div>
+      <label class="flbl">Estado</label>
+      <select id="ml_estado">${EST_MSG.map(e=>'<option '+(l.estado===e?'selected':'')+'>'+e+'</option>').join('')}</select>
+      <label class="flbl">Responsable</label><input id="ml_resp" value="${esc(l.responsable||'')}">
+      <label class="flbl">Teléfono</label><input id="ml_tel" value="${esc(l.telefono||'')}">
+      <label class="flbl">Ciudad</label><input id="ml_ciudad" value="${esc(l.ciudad||'')}">
+      <label class="flbl">Industria / giro</label><input id="ml_ind" value="${esc(l.industria||'')}">
+      <label class="flbl">Notas internas</label><textarea id="ml_notas" rows="2">${esc(l.notas||'')}</textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn ghost sm" id="ml_prospecto">Marcar prospecto</button>
+        <button class="btn ghost sm" id="ml_cliente">Convertir en cliente</button>
+        <a class="btn ghost sm" href="mailto:${esc(l.correo||'')}">Responder correo</a>
+      </div>
+      <div class="mrow"><button class="btn ghost" id="ml_cancel">Cerrar</button><button class="btn" id="ml_save">Guardar</button></div>`);
+    $('ml_cancel').onclick=closeModal;
+    $('ml_save').onclick=async ()=>{ await updLead(l.id,{estado:$('ml_estado').value,responsable:$('ml_resp').value||null,telefono:$('ml_tel').value||null,ciudad:$('ml_ciudad').value||null,industria:$('ml_ind').value||null,notas:$('ml_notas').value||null}); closeModal(); };
+    $('ml_prospecto').onclick=async ()=>{ await updLead(l.id,{estado:'en proceso'}); closeModal(); };
+    $('ml_cliente').onclick=()=>convertirCliente(l);
+  }
+  async function convertirCliente(l){
+    const opts=[{value:'',label:'— Solo marcar como cliente ganado —'}].concat(ST.NEGOCIOS.filter(b=>!b.archivado).map(b=>({value:b.id,label:b.business_name||'(sin nombre)'})));
+    const v=await formModal({title:'Convertir en cliente', subtitle:'Vincula el mensaje a un negocio existente (opcional).', fields:[{key:'biz',label:'Negocio',type:'select',value:'',options:opts}], submitLabel:'Convertir'});
+    if(!v) return;
+    await updLead(l.id,{estado:'respondido', convertido_business_id:v.biz||null});
+    notify('Listo, marcado como cliente.'+(v.biz?'':' Cuando el negocio cree su cuenta en el POS aparecerá en Clientes.'),'ok');
   }
   async function updLead(id,patch){
     const { data,error }=await sb.from('leads').update(patch).eq('id',id).select();
@@ -937,6 +997,33 @@
     let h='<p class="hint">Cuentas con acceso al panel. El admin principal es el único que puede eliminar clientes definitivamente.</p><table><thead><tr><th>User ID</th><th>Rol</th></tr></thead><tbody>';
     for(const a of ST.ADMINS) h+=`<tr><td class="muted">${esc(a.user_id)}</td><td>${a.es_principal?'<span class="tag t-activa">principal</span>':'<span class="tag t-leido">operador</span>'}</td></tr>`;
     c.innerHTML=h+'</tbody></table>';
+  }
+
+  // ===== CONFIGURACIÓN · EMPRESA =====
+  function renderConfigEmpresa(c){
+    const cf=ST.CONFIG||{};
+    c.innerHTML=`<div class="sechead"><h2>Configuración · Empresa</h2><span class="sp"></span><button class="btn sm" id="cfgEdit">Editar</button></div>
+      <p class="hint">Datos de tu empresa. El nombre aparece en los recibos PDF.</p>
+      <div class="panel" style="max-width:520px"><dl class="kv">
+        <dt>Nombre</dt><dd>${esc(cf.empresa_nombre||'SPES Systems')}</dd>
+        <dt>Correo</dt><dd>${esc(cf.empresa_correo||'—')}</dd>
+        <dt>Teléfono</dt><dd>${esc(cf.empresa_telefono||'—')}</dd>
+        <dt>RFC</dt><dd>${esc(cf.empresa_rfc||'—')}</dd>
+        <dt>Dirección</dt><dd>${esc(cf.empresa_direccion||'—')}</dd>
+      </dl></div>`;
+    $('cfgEdit').addEventListener('click', async ()=>{
+      const v=await formModal({title:'Datos de la empresa', fields:[
+        {key:'empresa_nombre',label:'Nombre',value:cf.empresa_nombre||'SPES Systems',required:true},
+        {key:'empresa_correo',label:'Correo',value:cf.empresa_correo||''},
+        {key:'empresa_telefono',label:'Teléfono',value:cf.empresa_telefono||''},
+        {key:'empresa_rfc',label:'RFC',value:cf.empresa_rfc||''},
+        {key:'empresa_direccion',label:'Dirección',value:cf.empresa_direccion||''}
+      ], submitLabel:'Guardar'});
+      if(!v) return;
+      const { error }=await sb.from('config').update({empresa_nombre:v.empresa_nombre, empresa_correo:v.empresa_correo||null, empresa_telefono:v.empresa_telefono||null, empresa_rfc:(v.empresa_rfc||'').toUpperCase()||null, empresa_direccion:v.empresa_direccion||null, actualizado_at:new Date().toISOString()}).eq('id',1).select();
+      if(error){ notify('No se pudo guardar: '+error.message,'error'); return; }
+      await loadAll(); render();
+    });
   }
 
   // ===== CUENTA =====
