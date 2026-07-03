@@ -149,8 +149,8 @@
   function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
 
   // ===== STATE =====
-  const ST={ uid:null, email:'', tab:'inicio', biz:null, sub:null, PAGOS:[], TICKETS:[], TMSGS:[], ANUNCIOS:[], VERSIONES:[], KB:[], PLANES:[], ticketId:null };
-  const TABS=[ ['inicio','Inicio'],['suscripcion','Mi suscripción'],['recibos','Recibos'],['soporte','Soporte'],['novedades','Novedades'],['ayuda','Ayuda'] ];
+  const ST={ uid:null, email:'', tab:'inicio', biz:null, sub:null, PAGOS:[], TICKETS:[], TMSGS:[], ANUNCIOS:[], VERSIONES:[], KB:[], PLANES:[], SALES:[], PRODUCTS:[], STOCK:{}, FLEET:[], ticketId:null };
+  const TABS=[ ['inicio','Inicio'],['ventas','Ventas'],['inventario','Inventario'],['suscripcion','Mi suscripción'],['recibos','Recibos'],['soporte','Soporte'],['novedades','Novedades'],['ayuda','Ayuda'] ];
 
   async function enter(session){
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
@@ -161,7 +161,7 @@
   async function loadPortal(){
     const uid=ST.uid;
     try{
-      const [biz,sub,pg,tk,an,ve,kb,pl]=await Promise.all([
+      const [biz,sub,pg,tk,an,ve,kb,pl,sa,pr,fl,st]=await Promise.all([
         sb.from('businesses').select('*').eq('id',uid).maybeSingle(),
         sb.from('subscriptions').select('*').eq('business_id',uid).maybeSingle(),
         sb.from('pagos').select('*').eq('business_id',uid).order('fecha',{ascending:false}),
@@ -169,11 +169,19 @@
         sb.from('anuncios').select('*').eq('publicado',true).order('created_at',{ascending:false}),
         sb.from('versiones').select('*').eq('publicada',true).order('created_at',{ascending:false}),
         sb.from('kb_articulos').select('*').eq('publicado',true).order('created_at',{ascending:false}),
-        sb.from('planes').select('*').eq('activo',true)
+        sb.from('planes').select('*').eq('activo',true),
+        sb.from('sales').select('id,folio,total,status,created_at').eq('account_id',uid).order('created_at',{ascending:false}).limit(500),
+        sb.from('records').select('record_id,data').eq('account_id',uid).eq('table_name','products'),
+        sb.from('fleet').select('*').eq('account_id',uid).order('last_seen_at',{ascending:false}),
+        sb.rpc('sync_stock_levels')
       ]);
       ST.biz=biz.data||null; ST.sub=sub.data||null;
       ST.PAGOS=(pg.data||[]).map(x=>({...x,created_at:x.created_at||x.fecha}));
       ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.VERSIONES=ve.data||[]; ST.KB=kb.data||[]; ST.PLANES=pl.data||[];
+      ST.SALES=sa.data||[];
+      ST.PRODUCTS=(pr.data||[]).filter(r=>!(r.data&&r.data.is_deleted)).map(r=>({ id:r.record_id, ...(r.data||{}) }));
+      ST.FLEET=fl.data||[];
+      ST.STOCK={}; (st.data||[]).forEach(x=>{ ST.STOCK[x.product_id]=Number(x.stock); });
     }catch(e){ /* se maneja en render */ }
   }
   const planNombre=cl=>{ const p=ST.PLANES.find(x=>x.clave===cl); return p?p.nombre:(cl||'—'); };
@@ -190,6 +198,8 @@
     }
     switch(ST.tab){
       case 'inicio': return rInicio(c);
+      case 'ventas': return rVentas(c);
+      case 'inventario': return rInventario(c);
       case 'suscripcion': return rSuscripcion(c);
       case 'recibos': return rRecibos(c);
       case 'soporte': return ST.ticketId?rTicket(c):rSoporte(c);
@@ -213,6 +223,9 @@
     const nombre=ST.biz?(ST.biz.business_name||'tu negocio'):'tu negocio';
     const s=ST.sub, dl=s?daysLeft(s.vence):null;
     const tkAb=ST.TICKETS.filter(t=>!['resuelto','cerrado'].includes(t.estado)).length;
+    const hoyStr=new Date().toDateString();
+    const ventasHoy=ST.SALES.filter(v=>v.status!=='cancelled' && new Date(v.created_at).toDateString()===hoyStr);
+    const totalHoy=ventasHoy.reduce((a,v)=>a+Number(v.total||0),0);
     c.innerHTML=`
       <h2>Hola, ${esc(nombre)} 👋</h2>
       <p class="sub">Este es tu portal para administrar tu cuenta SPES.</p>
@@ -221,13 +234,19 @@
         <div class="card"><div class="n">${s&&s.vence?fdate(s.vence):'—'}</div><div class="l">Vence${dl!=null?' · '+(dl<0?'vencida':dl+' días'):''}</div></div>
         <div class="card"><div class="n">${tkAb}</div><div class="l">Tickets abiertos</div></div>
       </div>
+      <div class="cards" style="margin-top:12px">
+        <div class="card"><div class="n">${money(totalHoy)}</div><div class="l">Ventas de hoy</div></div>
+        <div class="card"><div class="n">${ventasHoy.length}</div><div class="l">Tickets de hoy</div></div>
+        <div class="card"><div class="n">${ST.FLEET.length}</div><div class="l">Dispositivos</div></div>
+      </div>
       <div class="grid2" style="margin-top:20px">
         <div class="card"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Accesos rápidos</h3></div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
-            <button class="btn ghost sm" data-goto="suscripcion">Ver suscripción</button>
-            <button class="btn ghost sm" data-goto="recibos">Mis recibos</button>
+            <button class="btn ghost sm" data-goto="ventas">Mis ventas</button>
+            <button class="btn ghost sm" data-goto="inventario">Inventario</button>
+            <button class="btn ghost sm" data-goto="suscripcion">Suscripción</button>
+            <button class="btn ghost sm" data-goto="recibos">Recibos</button>
             <button class="btn ghost sm" data-goto="soporte">Soporte</button>
-            <button class="btn ghost sm" data-goto="novedades">Novedades</button>
           </div>
         </div>
         <div class="card"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Último anuncio</h3></div>
@@ -317,6 +336,46 @@
     c.innerHTML='<h2>Ayuda</h2><p class="sub">Guías y respuestas frecuentes.</p>';
     if(!ST.KB.length){ c.insertAdjacentHTML('beforeend','<div class="state">Aún no hay artículos.</div>'); return; }
     for(const a of ST.KB) c.insertAdjacentHTML('beforeend',`<div class="item"><h3>${esc(a.titulo)}</h3>${a.categoria?'<div class="meta">'+esc(a.categoria)+'</div>':''}${a.contenido?'<p class="muted" style="margin-top:8px;white-space:pre-wrap">'+esc(a.contenido)+'</p>':''}</div>`);
+  }
+
+  // ===== VENTAS =====
+  function rVentas(c){
+    const comp=ST.SALES.filter(v=>v.status!=='cancelled');
+    const now=new Date(), hoyStr=now.toDateString();
+    const mes=comp.filter(v=>{ const d=new Date(v.created_at); return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear(); });
+    const hoy=comp.filter(v=>new Date(v.created_at).toDateString()===hoyStr);
+    const sum=a=>a.reduce((x,v)=>x+Number(v.total||0),0);
+    const totMes=sum(mes), tick=mes.length?totMes/mes.length:0;
+    c.innerHTML=`<h2>Ventas</h2><p class="sub">Datos sincronizados desde tu POS.</p>
+      <div class="cards">
+        <div class="card"><div class="n">${money(sum(hoy))}</div><div class="l">Hoy · ${hoy.length} tickets</div></div>
+        <div class="card"><div class="n">${money(totMes)}</div><div class="l">Este mes · ${mes.length} tickets</div></div>
+        <div class="card"><div class="n">${money(tick)}</div><div class="l">Ticket promedio (mes)</div></div>
+      </div>`;
+    if(!ST.SALES.length){ c.insertAdjacentHTML('beforeend','<div class="state" style="margin-top:16px">Aún no hay ventas sincronizadas. Vende en tu POS con internet y aparecerán aquí.</div>'); return; }
+    let h='<div class="card" style="margin-top:16px;padding:6px 12px"><table><thead><tr><th>Folio</th><th>Fecha</th><th>Estado</th><th>Total</th></tr></thead><tbody>';
+    for(const v of ST.SALES.slice(0,100)) h+=`<tr><td class="mono">${esc(v.folio||'—')}</td><td>${fdt(v.created_at)}</td><td>${v.status==='cancelled'?'<span class="tag t-bad">cancelada</span>':'<span class="tag t-ok">'+esc(v.status||'ok')+'</span>'}</td><td><strong>${money(v.total)}</strong></td></tr>`;
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div>');
+  }
+
+  // ===== INVENTARIO =====
+  function rInventario(c){
+    const prods=ST.PRODUCTS.filter(p=>p.is_active!==0);
+    c.innerHTML='<h2>Inventario</h2><p class="sub">Tus productos y existencias (sincronizados desde el POS).</p>';
+    if(!prods.length){ c.insertAdjacentHTML('beforeend','<div class="state">Aún no hay productos sincronizados.</div>'); return; }
+    const price=p=>[p.price,p.sale_price,p.precio].find(x=>x!=null);
+    const low=prods.filter(p=>{ const s=ST.STOCK[p.id]; return s!=null && p.stock_min!=null && s<=Number(p.stock_min); }).length;
+    let h=`<div class="cards">
+        <div class="card"><div class="n">${prods.length}</div><div class="l">Productos</div></div>
+        <div class="card"><div class="n" style="color:#fbbf24">${low}</div><div class="l">Bajo mínimo</div></div>
+        <div class="card"><div class="n">${ST.FLEET.length}</div><div class="l">Dispositivos</div></div>
+      </div>
+      <div class="card" style="margin-top:16px;padding:6px 12px"><table><thead><tr><th>Producto</th><th>SKU</th><th>Stock</th><th>Mín.</th><th>Precio</th></tr></thead><tbody>`;
+    for(const p of prods){
+      const s=ST.STOCK[p.id], bajo=s!=null && p.stock_min!=null && s<=Number(p.stock_min), pr=price(p);
+      h+=`<tr><td>${esc(p.name||'—')}</td><td class="mono muted">${esc(p.sku||'—')}</td><td>${s!=null?('<strong'+(bajo?' style="color:#f87171"':'')+'>'+s+'</strong>'):'—'}</td><td class="muted">${p.stock_min!=null?esc(p.stock_min):'—'}</td><td>${pr!=null?money(pr):'—'}</td></tr>`;
+    }
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div>');
   }
 
   // ===== RECIBO PDF =====
