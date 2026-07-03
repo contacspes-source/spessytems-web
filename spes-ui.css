@@ -229,3 +229,39 @@ tbody tr:hover td{ background:var(--surface-2); }
 .spes-toast.info{ border-left-color:var(--info-fg); }
 
 @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+
+/* ================= Sidebar acordeón + refinamientos (v2) ================= */
+.ico{ width:20px; height:20px; flex-shrink:0; }
+/* Encabezado compacto */
+.spes-brand{ height:52px; padding:0 15px; gap:9px; }
+.spes-brand .logo{ width:26px; height:26px; font-size:14px; }
+.spes-brand b{ font-size:13.5px; }
+/* Nav + scrollbar oscuro delgado */
+.spes-nav{ padding:6px 8px 22px; scrollbar-width:thin; scrollbar-color:#24272e transparent; }
+.spes-nav::-webkit-scrollbar{ width:7px; }
+.spes-nav::-webkit-scrollbar-track{ background:transparent; }
+.spes-nav::-webkit-scrollbar-thumb{ background:#24272e; border-radius:4px; }
+.spes-nav::-webkit-scrollbar-thumb:hover{ background:#2f333c; }
+/* Item base compacto + activo con barra lateral */
+.spes-nav-item{ position:relative; padding:7px 10px; gap:10px; font-size:13px; border-radius:7px; }
+.spes-nav-item.active{ background:rgba(255,255,255,.09); color:#fff; font-weight:600; }
+.spes-nav-item.active::before{ content:''; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:0 3px 3px 0; background:#fff; }
+/* Próximamente: atenuado + no clicable (tooltip nativo por title) */
+.spes-nav-item.soon{ opacity:.42; cursor:default; }
+.spes-nav-item.soon:hover{ background:transparent; color:var(--sidebar-text); }
+/* Acordeón */
+.spes-acc-head{ display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px; border:0; background:transparent; color:var(--sidebar-text); font-family:inherit; font-size:13px; cursor:pointer; border-radius:7px; }
+.spes-acc-head:hover{ background:var(--sidebar-hover); color:#fff; }
+.spes-acc-head .ic-slot{ display:inline-flex; align-items:center; }
+.spes-acc-head .lbl{ flex:1; text-align:left; }
+.spes-acc-head .chev{ width:15px; height:15px; opacity:.55; transition:transform .22s ease; }
+.spes-acc.open > .spes-acc-head{ color:#fff; }
+.spes-acc.open > .spes-acc-head .chev{ transform:rotate(90deg); }
+.spes-acc-body{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .25s ease; }
+.spes-acc.open > .spes-acc-body{ grid-template-rows:1fr; }
+.spes-acc-inner{ overflow:hidden; min-height:0; margin:2px 0 4px 20px; border-left:1px solid rgba(255,255,255,.08); padding-left:6px; }
+.spes-acc-inner .spes-nav-item{ font-size:12.5px; }
+.spes-acc-inner .spes-nav-item.active::before{ left:-7px; }
+/* Colapsado: solo íconos */
+.spes-sidebar.collapsed .spes-acc-head .lbl, .spes-sidebar.collapsed .spes-acc-head .chev, .spes-sidebar.collapsed .spes-acc-body{ display:none; }
+.spes-sidebar.collapsed .spes-acc-head{ justify-content:center; padding:9px 0; }

@@ -91,5 +91,64 @@
     return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + paths + '</svg>';
   }
 
-  window.SpesUI = { toast: toast, createRouter: createRouter, initSidebar: initSidebar, icon: icon };
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  // ---------- Sidebar acordeón reutilizable ----------
+  // groups: [{ group?, items:[{id,label,soon}] }]  (grupos sin 'group' = enlaces sueltos arriba)
+  // opts: { activeId, itemIcon(id), groupIcon(name), onSelect(id), openKey }
+  function renderSidebar(navEl, groups, opts) {
+    opts = opts || {};
+    var itemIcon = opts.itemIcon || function () { return icon('dot'); };
+    var groupIcon = opts.groupIcon || function () { return icon('dot'); };
+    var onSelect = opts.onSelect || function () {};
+    var activeId = opts.activeId || null;
+    var openKey = opts.openKey || 'spes.navopen';
+
+    function itemHtml(it) {
+      var soon = !!it.soon, active = it.id === activeId;
+      return '<a class="spes-nav-item' + (active ? ' active' : '') + (soon ? ' soon' : '') + '" '
+        + (soon ? 'aria-disabled="true"' : 'data-nav="' + it.id + '"')
+        + ' title="' + esc(soon ? 'Disponible próximamente' : it.label) + '">'
+        + itemIcon(it.id) + '<span class="lbl">' + esc(it.label) + '</span></a>';
+    }
+
+    // ¿qué acordeón abierto? el que contiene el activo; si no, el guardado
+    var openIdx = -1;
+    groups.forEach(function (g, i) { if (g.group && (g.items || []).some(function (it) { return it.id === activeId; })) openIdx = i; });
+    if (openIdx < 0) { try { var s = localStorage.getItem(openKey); if (s !== null && s !== '') openIdx = parseInt(s, 10); } catch (e) {} }
+
+    var html = '';
+    groups.forEach(function (g, i) {
+      if (!g.group) { (g.items || []).forEach(function (it) { html += itemHtml(it); }); return; }
+      var open = (i === openIdx);
+      html += '<div class="spes-acc' + (open ? ' open' : '') + '" data-acc="' + i + '">'
+        + '<button type="button" class="spes-acc-head" data-acc-toggle="' + i + '">'
+        + '<span class="ic-slot">' + groupIcon(g.group) + '</span>'
+        + '<span class="lbl">' + esc(g.group) + '</span>'
+        + '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
+        + '</button>'
+        + '<div class="spes-acc-body"><div class="spes-acc-inner">'
+        + (g.items || []).map(itemHtml).join('')
+        + '</div></div></div>';
+    });
+    navEl.innerHTML = html;
+
+    // solo una abierta
+    navEl.querySelectorAll('[data-acc-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var idx = btn.getAttribute('data-acc-toggle');
+        var acc = btn.parentNode;
+        var willOpen = !acc.classList.contains('open');
+        navEl.querySelectorAll('.spes-acc').forEach(function (a) { a.classList.remove('open'); });
+        if (willOpen) acc.classList.add('open');
+        try { localStorage.setItem(openKey, willOpen ? idx : ''); } catch (e) {}
+      });
+    });
+    // selección de item
+    navEl.querySelectorAll('[data-nav]').forEach(function (a) {
+      a.addEventListener('click', function () { onSelect(a.getAttribute('data-nav')); });
+    });
+  }
+
+  window.SpesUI = { toast: toast, createRouter: createRouter, initSidebar: initSidebar, icon: icon, renderSidebar: renderSidebar };
 })();

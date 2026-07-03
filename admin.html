@@ -299,17 +299,16 @@
   const LABEL = {};
   NAV.forEach(g=>g.items.forEach(it=>{ LABEL[it.id]=it.label; }));
 
+  const GROUPIC={ 'CRM':'users','Suscripciones':'card','Soporte':'support','Productos':'box','Usuarios':'users','Marketing':'bell','Analíticas':'chart','Infraestructura':'server','Configuración':'gear' };
   function renderNav(){
-    let h='';
-    for(const g of NAV){
-      if(g.group) h+='<div class="spes-nav-group-label"><span>'+esc(g.group)+'</span></div>';
-      for(const it of g.items){
-        h+='<a data-view="'+it.id+'" class="spes-nav-item '+(ST.view===it.id?'active':'')+'" title="'+esc(it.label)+'">'+SpesUI.icon(NAVIC[it.id]||'dot')+'<span class="lbl">'+esc(it.label)+'</span>'+(it.soon?'<span class="badge">pronto</span>':'')+'</a>';
-      }
-    }
-    $('nav').innerHTML=h;
+    SpesUI.renderSidebar($('nav'), NAV, {
+      activeId: ST.view,
+      itemIcon: id=>SpesUI.icon(NAVIC[id]||'dot'),
+      groupIcon: name=>SpesUI.icon(GROUPIC[name]||'dot'),
+      onSelect: id=>go(id),
+      openKey:'spes.admin.navopen'
+    });
   }
-  $('nav').addEventListener('click', e=>{ const a=e.target.closest('a[data-view]'); if(!a) return; go(a.dataset.view); });
 
   const router = SpesUI.createRouter({ storageKey:'spes.admin.route', default:'dashboard', onRoute:applyRoute });
   function applyRoute(route){
