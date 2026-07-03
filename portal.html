@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -72,6 +72,11 @@
   .thread .m{ padding:10px 0; border-bottom:1px solid var(--bd2); }
   .thread .who{ font-size:12px; color:rgba(255,255,255,.5); margin-bottom:3px; }
 </style>
+<link rel="stylesheet" href="/spes-ui.css">
+<style>
+  .loginbox .logo{ font-family:Georgia,serif; }
+  .crumb{ color:var(--muted); font-weight:600; } .crumb-sep{ color:var(--faint); margin:0 4px; }
+</style>
 </head>
 <body>
 
@@ -90,23 +95,30 @@
   </div>
 </div>
 
-<div id="app" class="hidden">
-  <header>
-    <div class="hbar">
-      <span class="brand"><span class="logo lg">S.</span> SPES · Portal</span>
+<div id="app" class="spes-app hidden">
+  <aside id="aside" class="spes-sidebar">
+    <div class="spes-brand"><span class="logo">S.</span><b>SPES · Portal</b></div>
+    <nav id="nav" class="spes-nav"></nav>
+    <button id="collapseBtn" class="spes-nav-item" style="margin:2px 10px 12px;width:auto;border:0;background:transparent;color:var(--sidebar-muted);cursor:pointer"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Colapsar</span></button>
+  </aside>
+  <div class="spes-wrap">
+    <header class="spes-topbar">
+      <button class="spes-iconbtn" id="menuBtn" aria-label="Menú">☰</button>
+      <span class="vt" id="viewTitle">Inicio</span>
       <span class="sp"></span>
       <span class="muted" id="who"></span>
       <button class="btn ghost sm" id="logout">Salir</button>
-    </div>
-    <div class="tabs" id="tabs"></div>
-  </header>
-  <main id="content"></main>
+    </header>
+    <main id="content" class="spes-main"></main>
+  </div>
+  <div id="backdrop" class="spes-backdrop"></div>
 </div>
 
 <div id="modal" class="modal-overlay hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="/spes-ui.js"></script>
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
@@ -158,7 +170,7 @@
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     ST.uid=session.user.id; ST.email=session.user.email; $('who').textContent=session.user.email;
     await loadPortal();
-    renderTabs(); render();
+    router.handle();
   }
   async function loadPortal(){
     const uid=ST.uid;
@@ -189,9 +201,36 @@
   const planNombre=cl=>{ const p=ST.PLANES.find(x=>x.clave===cl); return p?p.nombre:(cl||'—'); };
   const precioSub=()=>{ const s=ST.sub; if(!s) return 0; if(s.precio_mxn!=null) return Number(s.precio_mxn); const p=ST.PLANES.find(x=>x.clave===s.plan); return p?Number(p.precio_mxn):0; };
 
-  function renderTabs(){ $('tabs').innerHTML=TABS.map(t=>'<a data-tab="'+t[0]+'" class="'+(ST.tab===t[0]?'active':'')+'">'+esc(t[1])+'</a>').join(''); }
-  $('tabs').addEventListener('click',e=>{ const a=e.target.closest('a[data-tab]'); if(!a) return; go(a.dataset.tab); });
-  function go(tab,ticketId){ ST.tab=tab; ST.ticketId=ticketId||null; renderTabs(); render(); window.scrollTo(0,0); }
+  const NAVP=[
+    { items:[{id:'inicio',label:'Inicio'}] },
+    { group:'Mi negocio', items:[{id:'ventas',label:'Ventas'},{id:'inventario',label:'Inventario'}] },
+    { group:'Cuenta', items:[{id:'suscripcion',label:'Mi suscripción'},{id:'recibos',label:'Recibos'}] },
+    { group:'Soporte', items:[{id:'soporte',label:'Soporte'},{id:'novedades',label:'Novedades'},{id:'ayuda',label:'Ayuda'}] }
+  ];
+  const PNAVIC={ inicio:'home', ventas:'chart', inventario:'box', suscripcion:'card', recibos:'receipt', soporte:'support', novedades:'bell', ayuda:'help' };
+  const PGRUPIC={ 'Mi negocio':'chart', 'Cuenta':'card', 'Soporte':'support' };
+  const PLABEL={}; NAVP.forEach(g=>g.items.forEach(it=>{ PLABEL[it.id]=it.label; }));
+  function renderTabs(){
+    SpesUI.renderSidebar($('nav'), NAVP, {
+      activeId: ST.tab,
+      itemIcon: id=>SpesUI.icon(PNAVIC[id]||'dot'),
+      groupIcon: name=>SpesUI.icon(PGRUPIC[name]||'dot'),
+      onSelect: id=>go(id),
+      openKey:'spes.portal.navopen'
+    });
+    const grp=(NAVP.find(g=>g.group && g.items.some(it=>it.id===ST.tab))||{}).group;
+    const lbl=PLABEL[ST.tab]||'Inicio';
+    $('viewTitle').innerHTML = grp ? '<span class="crumb">'+esc(grp)+'</span><span class="crumb-sep">›</span>'+esc(lbl) : esc(lbl);
+  }
+  const router = SpesUI.createRouter({ storageKey:'spes.portal.route', default:'inicio', onRoute:applyRoute });
+  function applyRoute(route){
+    const parts=String(route||'inicio').split('/');
+    ST.tab=parts[0]||'inicio'; ST.ticketId=(ST.tab==='soporte' && parts[1])?parts[1]:null;
+    renderTabs(); render(); window.scrollTo(0,0);
+    if(sidebarCtl) sidebarCtl.closeMobile();
+  }
+  function go(tab,ticketId){ router.go(ticketId?(tab+'/'+ticketId):tab); }
+  const sidebarCtl = SpesUI.initSidebar($('aside'), { collapseBtn:$('collapseBtn'), menuBtn:$('menuBtn'), backdrop:$('backdrop') });
 
   function render(){
     const c=$('content');
