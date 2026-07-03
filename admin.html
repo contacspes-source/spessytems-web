@@ -268,7 +268,7 @@
     { group:'Suscripciones', items:[ {id:'planes',label:'Planes'},{id:'membresias',label:'Membresías',soon:1},{id:'facturacion',label:'Facturación'},{id:'pagos',label:'Pagos'},{id:'renovaciones',label:'Renovaciones'} ] },
     { group:'Soporte', items:[ {id:'conversaciones',label:'Conversaciones',soon:1},{id:'tickets',label:'Tickets'},{id:'kb',label:'Base de conocimiento'},{id:'anuncios',label:'Anuncios'} ] },
     { group:'Productos', items:[ {id:'actualizaciones',label:'Actualizaciones'},{id:'licencias',label:'Licencias'},{id:'pf',label:'POS Frutería',soon:1},{id:'pr',label:'POS Restaurante',soon:1},{id:'pg',label:'POS Gimnasio',soon:1},{id:'hardware',label:'Hardware',soon:1} ] },
-    { group:'Usuarios', items:[ {id:'administradores',label:'Administradores'},{id:'roles',label:'Roles',soon:1},{id:'permisos',label:'Permisos',soon:1} ] },
+    { group:'Usuarios', items:[ {id:'administradores',label:'Administradores'},{id:'roles',label:'Roles'},{id:'permisos',label:'Permisos'} ] },
     { group:'Marketing', items:[ {id:'leads',label:'Leads'},{id:'formularios',label:'Formularios',soon:1},{id:'newsletter',label:'Newsletter',soon:1} ] },
     { group:'Analíticas', items:[ {id:'an_ventas',label:'Ventas',soon:1},{id:'an_ingresos',label:'Ingresos',soon:1},{id:'an_churn',label:'Churn',soon:1},{id:'an_conv',label:'Conversión',soon:1},{id:'an_uso',label:'Uso del sistema',soon:1} ] },
     { group:'Infraestructura', items:[ {id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
@@ -295,7 +295,7 @@
   // ===== BOOT =====
   async function showApp(session){
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
-    ST.email = session.user.email; $('who').textContent = session.user.email;
+    ST.email = session.user.email; ST.uid = session.user.id; $('who').textContent = session.user.email;
     $('na-email').textContent = session.user.email;
     let isAdmin=false;
     try{ const { data:a } = await sb.rpc('is_admin'); isAdmin=!!a; }catch(_){ }
@@ -356,6 +356,8 @@
       case 'actualizaciones': return renderActualizaciones(c);
       case 'licencias': return renderLicencias(c);
       case 'administradores': return renderAdmins(c);
+      case 'roles': return renderRoles(c);
+      case 'permisos': return renderPermisos(c);
       case 'cfg_empresa': return renderConfigEmpresa(c);
       case 'cuenta': return renderCuenta(c);
       default: return renderSoon(c);
@@ -992,6 +994,60 @@
     c.querySelectorAll('[data-delkb]').forEach(btn=>btn.addEventListener('click', async ()=>{ if(!await confirmModal({title:'Borrar artículo',message:'¿Seguro?',danger:true,confirmLabel:'Borrar'}))return; const {error}=await sb.from('kb_articulos').delete().eq('id',btn.dataset.delkb); if(error){notify(error.message,'error');return;} await loadAll(); render(); }));
   }
 
+  // ===== ROLES / PERMISOS =====
+  function renderRoles(c){
+    let h=`<div class="sechead"><h2>Roles · Administradores</h2><span class="sp"></span>${ST.isPrincipal?'<button class="btn sm" id="addAdmin">Agregar administrador</button>':''}</div>
+      <p class="hint">Quién puede entrar al panel. Solo el <b>admin principal</b> puede agregar/quitar y eliminar clientes.</p>
+      <table><thead><tr><th>Administrador</th><th>Rol</th>${ST.isPrincipal?'<th></th>':''}</tr></thead><tbody>`;
+    for(const a of ST.ADMINS){
+      const yo = a.user_id===ST.uid;
+      h+=`<tr><td class="muted">${esc(a.user_id)}${yo?' <span class="tag t-nuevo">tú</span>':''}</td><td>${a.es_principal?'<span class="tag t-activa">principal</span>':'<span class="tag t-leido">operador</span>'}</td>${ST.isPrincipal?('<td style="text-align:right">'+(a.es_principal?'':'<button class="btn sm ghost" data-rmadmin="'+esc(a.user_id)+'">Quitar</button>')+'</td>'):''}</tr>`;
+    }
+    h+='</tbody></table>';
+    if(!ST.isPrincipal) h+='<p class="hint" style="margin-top:10px">Entraste como operador: puedes ver, pero no gestionar administradores.</p>';
+    c.innerHTML=h;
+    if($('addAdmin')) $('addAdmin').addEventListener('click', addAdmin);
+    c.querySelectorAll('[data-rmadmin]').forEach(b=>b.addEventListener('click',()=>removeAdmin(b.dataset.rmadmin)));
+  }
+  async function addAdmin(){
+    if(!ST.isPrincipal) return notify('Solo el admin principal puede agregar administradores.','error');
+    const v=await formModal({title:'Agregar administrador', subtitle:'La persona debe tener ya una cuenta (correo) en SPES.', fields:[{key:'email',label:'Correo del nuevo admin',value:'',required:true}], submitLabel:'Buscar y agregar'});
+    if(!v) return;
+    const email=(v.email||'').trim().toLowerCase();
+    const { data:uid, error }=await sb.rpc('find_user_id_by_email',{ p_email:email });
+    if(error){ notify('No se pudo buscar: '+error.message,'error'); return; }
+    if(!uid){ notify('No encontré una cuenta con ese correo. Pídele que primero cree su cuenta (en el POS o registrándose) y vuelve a intentar.','error'); return; }
+    if(ST.ADMINS.some(a=>a.user_id===uid)){ notify('Esa cuenta ya es administrador.','error'); return; }
+    const { error:iErr }=await sb.from('admins').insert({ user_id:uid });
+    if(iErr){ notify('No se pudo agregar: '+iErr.message,'error'); return; }
+    await loadAll(); render(); notify('¡Administrador agregado!','ok');
+  }
+  async function removeAdmin(uid){
+    if(!ST.isPrincipal) return;
+    if(!await confirmModal({title:'Quitar administrador',message:'Ya no tendrá acceso al panel.',danger:true,confirmLabel:'Quitar'})) return;
+    const { error }=await sb.from('admins').delete().eq('user_id',uid);
+    if(error){ notify('No se pudo quitar: '+error.message,'error'); return; }
+    await loadAll(); render(); notify('Administrador quitado.','ok');
+  }
+  function renderPermisos(c){
+    c.innerHTML=`<h2 style="font-size:16px;font-weight:800">Permisos</h2><p class="hint">Qué puede hacer cada rol (por ahora, dos roles).</p>
+      <div class="grid2">
+        <div class="panel"><h3>Administrador principal</h3><ul class="feed">
+          <li><span class="dot d-pago"></span><span>Todo lo del operador</span></li>
+          <li><span class="dot d-pago"></span><span>Agregar / quitar administradores</span></li>
+          <li><span class="dot d-pago"></span><span>Eliminar clientes definitivamente</span></li>
+          <li><span class="dot d-pago"></span><span>Editar la configuración de la empresa</span></li>
+        </ul></div>
+        <div class="panel"><h3>Operador</h3><ul class="feed">
+          <li><span class="dot d-registro"></span><span>Ver clientes, mensajes, pagos, tickets</span></li>
+          <li><span class="dot d-registro"></span><span>Registrar pagos, cambiar plan/precio, suspender/reactivar</span></li>
+          <li><span class="dot d-registro"></span><span>Gestionar mensajes, tickets, anuncios y actualizaciones</span></li>
+          <li><span class="dot d-mensaje"></span><span><b>No</b> puede eliminar clientes ni gestionar administradores/configuración</span></li>
+        </ul></div>
+      </div>
+      <p class="hint" style="margin-top:12px">Permisos granulares por módulo llegarán más adelante.</p>`;
+  }
+
   // ===== ADMINISTRADORES =====
   function renderAdmins(c){
     let h='<p class="hint">Cuentas con acceso al panel. El admin principal es el único que puede eliminar clientes definitivamente.</p><table><thead><tr><th>User ID</th><th>Rol</th></tr></thead><tbody>';
@@ -1002,7 +1058,7 @@
   // ===== CONFIGURACIÓN · EMPRESA =====
   function renderConfigEmpresa(c){
     const cf=ST.CONFIG||{};
-    c.innerHTML=`<div class="sechead"><h2>Configuración · Empresa</h2><span class="sp"></span><button class="btn sm" id="cfgEdit">Editar</button></div>
+    c.innerHTML=`<div class="sechead"><h2>Configuración · Empresa</h2><span class="sp"></span>${ST.isPrincipal?'<button class="btn sm" id="cfgEdit">Editar</button>':''}</div>
       <p class="hint">Datos de tu empresa. El nombre aparece en los recibos PDF.</p>
       <div class="panel" style="max-width:520px"><dl class="kv">
         <dt>Nombre</dt><dd>${esc(cf.empresa_nombre||'SPES Systems')}</dd>
@@ -1011,7 +1067,7 @@
         <dt>RFC</dt><dd>${esc(cf.empresa_rfc||'—')}</dd>
         <dt>Dirección</dt><dd>${esc(cf.empresa_direccion||'—')}</dd>
       </dl></div>`;
-    $('cfgEdit').addEventListener('click', async ()=>{
+    if($('cfgEdit')) $('cfgEdit').addEventListener('click', async ()=>{
       const v=await formModal({title:'Datos de la empresa', fields:[
         {key:'empresa_nombre',label:'Nombre',value:cf.empresa_nombre||'SPES Systems',required:true},
         {key:'empresa_correo',label:'Correo',value:cf.empresa_correo||''},
