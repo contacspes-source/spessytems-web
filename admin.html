@@ -271,7 +271,7 @@
     { group:'Usuarios', items:[ {id:'administradores',label:'Administradores'},{id:'roles',label:'Roles'},{id:'permisos',label:'Permisos'} ] },
     { group:'Marketing', items:[ {id:'leads',label:'Leads'},{id:'formularios',label:'Formularios',soon:1},{id:'newsletter',label:'Newsletter',soon:1} ] },
     { group:'Analíticas', items:[ {id:'an_ventas',label:'Ventas',soon:1},{id:'an_ingresos',label:'Ingresos',soon:1},{id:'an_churn',label:'Churn',soon:1},{id:'an_conv',label:'Conversión',soon:1},{id:'an_uso',label:'Uso del sistema',soon:1} ] },
-    { group:'Infraestructura', items:[ {id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
+    { group:'Infraestructura', items:[ {id:'flota',label:'Flota'},{id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
     { group:'Configuración', items:[ {id:'cfg_empresa',label:'Empresa'},{id:'cfg_branding',label:'Branding',soon:1},{id:'cfg_correos',label:'Correos',soon:1},{id:'cfg_api',label:'API',soon:1},{id:'cfg_integraciones',label:'Integraciones',soon:1} ] },
     { items:[ {id:'cuenta',label:'Cuenta'} ] }
   ];
@@ -355,6 +355,7 @@
       case 'renovaciones': return renderRenovaciones(c);
       case 'actualizaciones': return renderActualizaciones(c);
       case 'licencias': return renderLicencias(c);
+      case 'flota': return renderFlota(c);
       case 'administradores': return renderAdmins(c);
       case 'roles': return renderRoles(c);
       case 'permisos': return renderPermisos(c);
@@ -879,6 +880,62 @@
       if(error){ notify('No se pudo borrar: '+error.message,'error'); return; }
       await loadAll(); render();
     }));
+  }
+
+  // ===== FLOTA (Bloque 0.4: observabilidad) =====
+  // Cada instalación del POS reporta versión + última conexión vía el RPC
+  // fleet_heartbeat (al arrancar y cada 6 h). Aquí se ve la flota y salta la
+  // alerta de clientes con demasiados días sin conectar.
+  const FLOTA_ALERTA_DIAS = 7;
+  async function renderFlota(c){
+    c.innerHTML='<div class="card state">Cargando flota…</div>';
+    const { data, error } = await sb.from('fleet').select('*').order('last_seen_at',{ascending:false});
+    if(ST.view!=='flota') return; // el usuario ya navegó a otra pantalla
+    if(error){ c.innerHTML='<div class="card state" style="color:#dc2626">Error al cargar la flota: '+esc(error.message)+'</div>'; return; }
+    const rows=data||[];
+    const latest=(ST.VERSIONES.find(v=>v.publicada)||ST.VERSIONES[0]||{}).version||null;
+    const now=Date.now();
+    const daysAgo=ts=>Math.max(0, Math.floor((now-new Date(ts).getTime())/86400000));
+
+    // Agrupar por cuenta: una cuenta está "conectada" si CUALQUIERA de sus
+    // dispositivos dio señal de vida recientemente.
+    const byAcc={};
+    rows.forEach(r=>{ (byAcc[r.account_id]=byAcc[r.account_id]||[]).push(r); });
+    const cuentas=Object.entries(byAcc).map(([acc,list])=>({
+      acc, list,
+      minDays:Math.min.apply(null, list.map(r=>daysAgo(r.last_seen_at))),
+      last:list.reduce((m,r)=> new Date(r.last_seen_at)>new Date(m)?r.last_seen_at:m, list[0].last_seen_at)
+    }));
+    const desconectadas=cuentas.filter(x=>x.minDays>=FLOTA_ALERTA_DIAS).sort((a,b)=>b.minDays-a.minDays);
+    const hoy=cuentas.filter(x=>x.minDays<1).length;
+
+    const estadoTagF=d=> d<2 ? '<span class="tag t-activa">al día</span>'
+      : d<FLOTA_ALERTA_DIAS ? '<span class="tag t-proceso">'+d+' días</span>'
+      : '<span class="tag t-suspendida">'+d+' días sin conectar</span>';
+    const verTag=v=> !v ? '—'
+      : (latest && v!==latest ? esc(v)+' <span class="tag t-archivado">desactualizada</span>'
+      : esc(v)+(latest?' <span class="tag t-activa">última</span>':''));
+
+    let h=`<p class="hint">Cada instalación del POS reporta su versión y última conexión al arrancar y cada 6 horas (solo datos técnicos, nada del negocio). Última versión publicada: ${latest?'v'+esc(latest):'—'}.</p>`;
+    h+=`<div class="kpis">
+      <div class="kpi"><div class="n">${rows.length}</div><div class="l">Dispositivos</div></div>
+      <div class="kpi"><div class="n">${cuentas.length}</div><div class="l">Cuentas con POS activo</div></div>
+      <div class="kpi"><div class="n">${hoy}</div><div class="l">Conectadas hoy</div></div>
+      <div class="kpi"><div class="n ${desconectadas.length?'danger':''}">${desconectadas.length}</div><div class="l">Sin conectar ≥ ${FLOTA_ALERTA_DIAS} días</div></div>
+    </div>`;
+    if(desconectadas.length){
+      h+='<div class="sec"><div class="sechead"><h2 class="danger">⚠ Clientes sin conectar (alerta)</h2></div><table><thead><tr><th>Negocio</th><th>Días sin conectar</th><th>Última conexión</th></tr></thead><tbody>';
+      for(const x of desconectadas) h+=`<tr><td><strong>${esc(nameOf(x.acc))}</strong></td><td class="danger"><strong>${x.minDays}</strong></td><td>${fdatetime(x.last)}</td></tr>`;
+      h+='</tbody></table></div>';
+    }
+    if(!rows.length){
+      h+='<div class="card state">Aún no hay latidos: ninguna instalación con heartbeat (v0.4.1+) se ha conectado.</div>';
+    } else {
+      h+='<div class="sec"><div class="sechead"><h2>Dispositivos</h2></div><table><thead><tr><th>Negocio</th><th>Dispositivo</th><th>Versión</th><th>Plataforma</th><th>Última conexión</th><th>Estado</th></tr></thead><tbody>';
+      for(const r of rows) h+=`<tr><td><strong>${esc(nameOf(r.account_id))}</strong></td><td class="muted">${esc(String(r.device_id).slice(0,8))}</td><td>${verTag(r.app_version)}</td><td class="muted">${esc(r.platform||'—')}</td><td>${fdatetime(r.last_seen_at)}</td><td>${estadoTagF(daysAgo(r.last_seen_at))}</td></tr>`;
+      h+='</tbody></table></div>';
+    }
+    c.innerHTML=h;
   }
 
   // ===== SOPORTE =====
