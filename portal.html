@@ -118,6 +118,8 @@
     removeItem:k=>{ try{ localStorage.removeItem(k); }catch(_){ delete memStore[k]; } }
   };
   const sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storage:safeStorage}});
+  // Bloque 0.2: tablas de control en esquema 'control'; sales/records (data plane) siguen en public.
+  const sbc=sb.schema('control');
 
   const $=id=>document.getElementById(id);
   const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -162,17 +164,17 @@
     const uid=ST.uid;
     try{
       const [biz,sub,pg,tk,an,ve,kb,pl,sa,pr,fl,st]=await Promise.all([
-        sb.from('businesses').select('*').eq('id',uid).maybeSingle(),
-        sb.from('subscriptions').select('*').eq('business_id',uid).maybeSingle(),
-        sb.from('pagos').select('*').eq('business_id',uid).order('fecha',{ascending:false}),
-        sb.from('tickets').select('*').eq('business_id',uid).order('updated_at',{ascending:false}),
-        sb.from('anuncios').select('*').eq('publicado',true).order('created_at',{ascending:false}),
-        sb.from('versiones').select('*').eq('publicada',true).order('created_at',{ascending:false}),
-        sb.from('kb_articulos').select('*').eq('publicado',true).order('created_at',{ascending:false}),
-        sb.from('planes').select('*').eq('activo',true),
+        sbc.from('businesses').select('*').eq('id',uid).maybeSingle(),
+        sbc.from('subscriptions').select('*').eq('business_id',uid).maybeSingle(),
+        sbc.from('pagos').select('*').eq('business_id',uid).order('fecha',{ascending:false}),
+        sbc.from('tickets').select('*').eq('business_id',uid).order('updated_at',{ascending:false}),
+        sbc.from('anuncios').select('*').eq('publicado',true).order('created_at',{ascending:false}),
+        sbc.from('versiones').select('*').eq('publicada',true).order('created_at',{ascending:false}),
+        sbc.from('kb_articulos').select('*').eq('publicado',true).order('created_at',{ascending:false}),
+        sbc.from('planes').select('*').eq('activo',true),
         sb.from('sales').select('id,folio,total,status,created_at').eq('account_id',uid).order('created_at',{ascending:false}).limit(500),
         sb.from('records').select('record_id,data').eq('account_id',uid).eq('table_name','products'),
-        sb.from('fleet').select('*').eq('account_id',uid).order('last_seen_at',{ascending:false}),
+        sbc.from('fleet').select('*').eq('account_id',uid).order('last_seen_at',{ascending:false}),
         sb.rpc('sync_stock_levels')
       ]);
       ST.biz=biz.data||null; ST.sub=sub.data||null;
@@ -302,12 +304,12 @@
   async function nuevoTicket(){
     const v=await formModal({title:'Nuevo ticket', fields:[{key:'asunto',label:'Asunto',value:'',required:true},{key:'prioridad',label:'Prioridad',type:'select',value:'media',options:['baja','media','alta','urgente']},{key:'mensaje',label:'Cuéntanos qué pasa',type:'textarea',value:'',rows:4}], submitLabel:'Enviar'});
     if(!v) return;
-    const ins=await sb.from('tickets').insert({business_id:ST.uid, asunto:v.asunto, prioridad:v.prioridad, canal:'portal'}).select();
+    const ins=await sbc.from('tickets').insert({business_id:ST.uid, asunto:v.asunto, prioridad:v.prioridad, canal:'portal'}).select();
     if(ins.error){ notify('No se pudo crear el ticket: '+ins.error.message,'error'); return; }
-    if(v.mensaje && ins.data && ins.data[0]) await sb.from('ticket_mensajes').insert({ticket_id:ins.data[0].id, autor:ST.email, autor_tipo:'cliente', cuerpo:v.mensaje});
+    if(v.mensaje && ins.data && ins.data[0]) await sbc.from('ticket_mensajes').insert({ticket_id:ins.data[0].id, autor:ST.email, autor_tipo:'cliente', cuerpo:v.mensaje});
     await loadPortal(); go('soporte'); notify('¡Ticket enviado! Te responderemos pronto.','ok');
   }
-  async function openTicket(id){ const {data}=await sb.from('ticket_mensajes').select('*').eq('ticket_id',id).order('created_at',{ascending:true}); ST.TMSGS=data||[]; go('soporte',id); }
+  async function openTicket(id){ const {data}=await sbc.from('ticket_mensajes').select('*').eq('ticket_id',id).order('created_at',{ascending:true}); ST.TMSGS=data||[]; go('soporte',id); }
   function rTicket(c){
     const t=ST.TICKETS.find(x=>x.id===ST.ticketId);
     if(!t){ c.innerHTML='<div class="state">Ticket no encontrado.</div>'; return; }
@@ -317,7 +319,7 @@
         <div style="display:flex;gap:8px;margin-top:12px"><input id="rep" placeholder="Escribe un mensaje…" style="margin:0"><button class="btn" id="send">Enviar</button></div>
       </div>`;
     $('backTk').onclick=()=>go('soporte');
-    $('send').onclick=async ()=>{ const v=$('rep').value.trim(); if(!v) return; const {error}=await sb.from('ticket_mensajes').insert({ticket_id:t.id,autor:ST.email,autor_tipo:'cliente',cuerpo:v}); if(error){ notify('No se pudo enviar: '+error.message,'error'); return; } await openTicket(t.id); };
+    $('send').onclick=async ()=>{ const v=$('rep').value.trim(); if(!v) return; const {error}=await sbc.from('ticket_mensajes').insert({ticket_id:t.id,autor:ST.email,autor_tipo:'cliente',cuerpo:v}); if(error){ notify('No se pudo enviar: '+error.message,'error'); return; } await openTicket(t.id); };
   }
 
   // ===== NOVEDADES =====
