@@ -265,3 +265,20 @@ tbody tr:hover td{ background:var(--surface-2); }
 /* Colapsado: solo íconos */
 .spes-sidebar.collapsed .spes-acc-head .lbl, .spes-sidebar.collapsed .spes-acc-head .chev, .spes-sidebar.collapsed .spes-acc-body{ display:none; }
 .spes-sidebar.collapsed .spes-acc-head{ justify-content:center; padding:9px 0; }
+
+/* ================= v3 — íconos claros + medidas de spec ================= */
+:root{ --sidebar-w:264px; }
+/* Todos los íconos: línea clara, nunca rellenos (arregla cabeceras en negro) */
+.ico{ fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.spes-nav-item .ico, .spes-acc-head .ico{ color:#e2e6ec; opacity:1; }
+/* Medidas */
+.spes-nav{ padding:8px 12px 22px; }
+.spes-nav-item, .spes-acc-head{ padding:8px 12px; border-radius:8px; }
+.spes-nav-item{ margin:1px 0; }
+.spes-acc-inner .spes-nav-item{ padding-left:12px; }
+/* Scroll: thumb #000 / track #111, delgado */
+.spes-nav{ scrollbar-color:#000000 #111111; }
+.spes-nav::-webkit-scrollbar{ width:8px; }
+.spes-nav::-webkit-scrollbar-track{ background:#111111; border-radius:4px; }
+.spes-nav::-webkit-scrollbar-thumb{ background:#000000; border-radius:4px; }
+.spes-nav::-webkit-scrollbar-thumb:hover{ background:#0a0a0a; }
