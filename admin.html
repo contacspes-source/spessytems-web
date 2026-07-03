@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -93,6 +93,24 @@
   #filebanner{ background:#fef2f2; color:#991b1b; border-bottom:1px solid #fecaca; padding:12px 18px; font-size:13px; text-align:center; }
   #filebanner code{ background:#fff; padding:1px 6px; border-radius:5px; border:1px solid #fecaca; }
 </style>
+<link rel="stylesheet" href="/spes-ui.css">
+<style>
+  /* Admin — overrides mínimos sobre el Design System (cargados DESPUÉS para ganar) */
+  #login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .loginbox{ width:100%; max-width:360px; padding:34px 30px; text-align:center; }
+  .loginbox .logo{ width:48px;height:48px;border-radius:12px;background:#111318;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:800;font-size:24px;margin:0 auto 14px; }
+  .loginbox h1{ font-size:18px; font-weight:800; }
+  #filebanner{ background:var(--bad-bg); color:var(--bad-fg); border-bottom:1px solid var(--border); padding:12px 18px; font-size:13px; text-align:center; }
+  #filebanner code{ background:var(--surface); padding:1px 6px; border-radius:5px; border:1px solid var(--border); }
+  #menuBtn{ display:none; } @media(max-width:900px){ #menuBtn{ display:inline-flex; } }
+  .kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:14px; }
+  @media(max-width:900px){ .kpis{ grid-template-columns:repeat(2,1fr); } }
+  .sec{ margin-bottom:22px; }
+  .soonbox{ padding:38px; text-align:center; color:var(--muted); }
+  .soonbox .big{ font-size:16px; font-weight:800; color:var(--text); margin-bottom:6px; }
+  .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:var(--bad-fg); } .ok{ color:var(--ok-fg); }
+  .brand .logo{ font-family:Georgia,serif; }
+</style>
 </head>
 <body>
 
@@ -115,33 +133,35 @@
   </div>
 </div>
 
-<div id="app" class="hidden">
-  <aside id="aside">
-    <div class="brand"><span class="logo">S.</span><b>SPES · Admin</b></div>
-    <nav id="nav"></nav>
+<div id="app" class="spes-app hidden">
+  <aside id="aside" class="spes-sidebar">
+    <div class="spes-brand"><span class="logo">S.</span><b>SPES · Admin</b></div>
+    <nav id="nav" class="spes-nav"></nav>
+    <button id="collapseBtn" class="spes-nav-item" style="margin:2px 10px 12px;width:auto;border:0;background:transparent;color:var(--sidebar-muted);cursor:pointer"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Colapsar</span></button>
   </aside>
-  <div class="wrap">
-    <header>
-      <button class="btn ghost sm" id="menuBtn" aria-label="Menú">☰</button>
+  <div class="spes-wrap">
+    <header class="spes-topbar">
+      <button class="spes-iconbtn" id="menuBtn" aria-label="Menú">☰</button>
       <span class="vt" id="viewTitle">Dashboard</span>
       <span class="sp"></span>
       <span class="muted" id="who"></span>
       <button class="btn ghost sm" id="logout">Salir</button>
     </header>
-    <main id="main">
-      <div id="notadmin" class="card state hidden">
-        Esta cuenta (<b id="na-email"></b>) no está autorizada para el panel.
-        Entra con tu cuenta de administrador.
+    <main id="main" class="spes-main">
+      <div id="notadmin" class="state hidden" style="margin-bottom:20px">
+        Esta cuenta (<b id="na-email"></b>) no está autorizada para el panel. Entra con tu cuenta de administrador.
       </div>
       <div id="content"></div>
     </main>
   </div>
+  <div id="backdrop" class="spes-backdrop"></div>
 </div>
 
 <div id="modal" class="modal-overlay hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="/spes-ui.js"></script>
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
@@ -264,33 +284,43 @@
 
   const NAV = [
     { items:[ {id:'dashboard',label:'Dashboard'} ] },
-    { group:'CRM', items:[ {id:'prospectos',label:'Prospectos'},{id:'clientes',label:'Clientes'},{id:'mensajes',label:'Mensajes'},{id:'empresas',label:'Empresas',soon:1},{id:'contactos',label:'Contactos',soon:1} ] },
-    { group:'Suscripciones', items:[ {id:'planes',label:'Planes'},{id:'membresias',label:'Membresías',soon:1},{id:'facturacion',label:'Facturación'},{id:'pagos',label:'Pagos'},{id:'renovaciones',label:'Renovaciones'} ] },
-    { group:'Soporte', items:[ {id:'conversaciones',label:'Conversaciones',soon:1},{id:'tickets',label:'Tickets'},{id:'kb',label:'Base de conocimiento'},{id:'anuncios',label:'Anuncios'} ] },
+    { group:'CRM', items:[ {id:'clientes',label:'Clientes'},{id:'mensajes',label:'Mensajes'},{id:'empresas',label:'Empresas',soon:1},{id:'contactos',label:'Contactos',soon:1} ] },
+    { group:'Suscripciones', items:[ {id:'planes',label:'Planes'},{id:'pagos',label:'Pagos'},{id:'renovaciones',label:'Renovaciones'},{id:'facturacion',label:'Facturación'},{id:'membresias',label:'Membresías',soon:1} ] },
+    { group:'Soporte', items:[ {id:'tickets',label:'Tickets'},{id:'kb',label:'Base de conocimiento'},{id:'anuncios',label:'Anuncios'},{id:'conversaciones',label:'Conversaciones',soon:1} ] },
     { group:'Productos', items:[ {id:'actualizaciones',label:'Actualizaciones'},{id:'licencias',label:'Licencias'},{id:'pf',label:'POS Frutería',soon:1},{id:'pr',label:'POS Restaurante',soon:1},{id:'pg',label:'POS Gimnasio',soon:1},{id:'hardware',label:'Hardware',soon:1} ] },
-    { group:'Usuarios', items:[ {id:'administradores',label:'Administradores'},{id:'roles',label:'Roles'},{id:'permisos',label:'Permisos'} ] },
-    { group:'Marketing', items:[ {id:'leads',label:'Leads'},{id:'formularios',label:'Formularios',soon:1},{id:'newsletter',label:'Newsletter',soon:1} ] },
+    { group:'Usuarios', items:[ {id:'roles',label:'Roles'},{id:'permisos',label:'Permisos'} ] },
+    { group:'Marketing', items:[ {id:'formularios',label:'Formularios',soon:1},{id:'newsletter',label:'Newsletter',soon:1} ] },
     { group:'Analíticas', items:[ {id:'an_ventas',label:'Ventas',soon:1},{id:'an_ingresos',label:'Ingresos',soon:1},{id:'an_churn',label:'Churn',soon:1},{id:'an_conv',label:'Conversión',soon:1},{id:'an_uso',label:'Uso del sistema',soon:1} ] },
-    { group:'Infraestructura', items:[ {id:'flota',label:'Flota'},{id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
+    { group:'Infraestructura', items:[ {id:'flota',label:'Flota',soon:1},{id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
     { group:'Configuración', items:[ {id:'cfg_empresa',label:'Empresa'},{id:'cfg_branding',label:'Branding',soon:1},{id:'cfg_correos',label:'Correos',soon:1},{id:'cfg_api',label:'API',soon:1},{id:'cfg_integraciones',label:'Integraciones',soon:1} ] },
     { items:[ {id:'cuenta',label:'Cuenta'} ] }
   ];
+  const NAVIC={ dashboard:'dashboard', clientes:'users', mensajes:'bell', empresas:'building', contactos:'user', planes:'tag', pagos:'card', renovaciones:'receipt', facturacion:'receipt', membresias:'tag', tickets:'support', kb:'help', anuncios:'bell', conversaciones:'support', actualizaciones:'box', licencias:'tag', pf:'box', pr:'box', pg:'box', hardware:'box', roles:'users', permisos:'gear', formularios:'help', newsletter:'bell', an_ventas:'chart', an_ingresos:'chart', an_churn:'chart', an_conv:'chart', an_uso:'chart', flota:'server', inf_estado:'server', inf_serv:'server', inf_db:'server', inf_backups:'server', inf_logs:'server', cfg_empresa:'gear', cfg_branding:'gear', cfg_correos:'gear', cfg_api:'gear', cfg_integraciones:'gear', cuenta:'user' };
   const LABEL = {};
   NAV.forEach(g=>g.items.forEach(it=>{ LABEL[it.id]=it.label; }));
 
   function renderNav(){
     let h='';
     for(const g of NAV){
-      if(g.group) h+='<div class="grp">'+esc(g.group)+'</div>';
+      if(g.group) h+='<div class="spes-nav-group-label"><span>'+esc(g.group)+'</span></div>';
       for(const it of g.items){
-        h+='<a data-view="'+it.id+'" class="'+(ST.view===it.id?'active':'')+'">'+esc(it.label)+(it.soon?'<span class="soon">pronto</span>':'')+'</a>';
+        h+='<a data-view="'+it.id+'" class="spes-nav-item '+(ST.view===it.id?'active':'')+'" title="'+esc(it.label)+'">'+SpesUI.icon(NAVIC[it.id]||'dot')+'<span class="lbl">'+esc(it.label)+'</span>'+(it.soon?'<span class="badge">pronto</span>':'')+'</a>';
       }
     }
     $('nav').innerHTML=h;
   }
-  $('nav').addEventListener('click', e=>{ const a=e.target.closest('a[data-view]'); if(!a) return; go(a.dataset.view); $('aside').classList.remove('open'); });
+  $('nav').addEventListener('click', e=>{ const a=e.target.closest('a[data-view]'); if(!a) return; go(a.dataset.view); });
 
-  function go(view, param){ ST.view=view; ST.param=param||null; if(view==='cliente') ST.clienteId=param||null; renderNav(); render(); window.scrollTo(0,0); }
+  const router = SpesUI.createRouter({ storageKey:'spes.admin.route', default:'dashboard', onRoute:applyRoute });
+  function applyRoute(route){
+    const parts=String(route||'dashboard').split('/');
+    ST.view=parts[0]||'dashboard'; ST.param=parts[1]||null;
+    if(ST.view==='cliente') ST.clienteId=ST.param;
+    renderNav(); render(); window.scrollTo(0,0);
+    if(sidebarCtl) sidebarCtl.closeMobile();
+  }
+  function go(view, param){ router.go(param?(view+'/'+param):view); }
+  const sidebarCtl = SpesUI.initSidebar($('aside'), { collapseBtn:$('collapseBtn'), menuBtn:$('menuBtn'), backdrop:$('backdrop') });
 
   // ===== BOOT =====
   async function showApp(session){
@@ -304,9 +334,8 @@
     $('content').classList.toggle('hidden', !isAdmin);
     $('aside').style.visibility = isAdmin?'visible':'hidden';
     if(!isAdmin) return;
-    renderNav();
     await loadAll();
-    render();
+    router.handle();
   }
 
   async function loadAll(){
@@ -699,7 +728,8 @@
     let list=ST.LEADS.slice();
     if(mode==='prospectos') list=list.filter(l=>['en proceso','leido'].includes(l.estado));
     if(!list.length){ c.innerHTML='<div class="card state">Sin mensajes'+(mode==='prospectos'?' en seguimiento':'')+'.</div>'; return; }
-    let h=`<p class="hint">${mode==='prospectos'?'Mensajes en seguimiento (leídos / en proceso).':'Mensajes del sitio como mini-CRM. Abre "Detalle" para editar datos, asignar y convertir en cliente.'}</p>
+    let h=`<div class="row-actions" style="margin-bottom:12px"><button class="btn sm ${mode==='prospectos'?'ghost':''}" data-mf="mensajes">Todos</button><button class="btn sm ${mode==='prospectos'?'':'ghost'}" data-mf="prospectos">En seguimiento</button></div>
+      <p class="hint">${mode==='prospectos'?'Mensajes en seguimiento (leídos / en proceso).':'Mensajes del sitio como mini-CRM. Abre "Detalle" para editar datos, asignar y convertir en cliente.'}</p>
       <table><thead><tr><th>Contacto</th><th>Mensaje</th><th>Estado</th><th>Responsable</th><th>Fecha</th><th></th></tr></thead><tbody>`;
     for(const l of list){
       h+=`<tr>
@@ -713,6 +743,7 @@
     }
     c.innerHTML=h+'</tbody></table>';
     c.querySelectorAll('[data-msg]').forEach(b=>b.addEventListener('click',()=>openMensaje(b.dataset.msg)));
+    c.querySelectorAll('[data-mf]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.mf)));
   }
   function openMensaje(id){
     const l=ST.LEADS.find(x=>x.id===id); if(!l) return;
