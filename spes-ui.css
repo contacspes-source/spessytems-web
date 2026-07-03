@@ -282,3 +282,21 @@ tbody tr:hover td{ background:var(--surface-2); }
 .spes-nav::-webkit-scrollbar-track{ background:#111111; border-radius:4px; }
 .spes-nav::-webkit-scrollbar-thumb{ background:#000000; border-radius:4px; }
 .spes-nav::-webkit-scrollbar-thumb:hover{ background:#0a0a0a; }
+
+/* ================= v4 — acento índigo + tokens exactos (mockup) ================= */
+:root{ --sidebar-bg:#0d1117; }
+.spes-nav-item.active{ background:rgba(99,102,241,.13); color:#fff; }
+.spes-nav-item.active::before{ background:#6366f1; }
+.spes-nav-item.active .ico{ color:#9598f6; }
+.spes-acc.open > .spes-acc-head, .spes-acc.open > .spes-acc-head .ico{ color:#fff; }
+.spes-acc-body{ transition:grid-template-rows .2s ease; }
+.spes-acc-head .chev{ transition:transform .2s ease; }
+/* Scrollbar: track #0d1117, thumb #1f1f1f, hover #2a2a2a, 6px */
+.spes-nav{ scrollbar-color:#1f1f1f #0d1117; }
+.spes-nav::-webkit-scrollbar{ width:6px; }
+.spes-nav::-webkit-scrollbar-track{ background:#0d1117; }
+.spes-nav::-webkit-scrollbar-thumb{ background:#1f1f1f; border-radius:4px; }
+.spes-nav::-webkit-scrollbar-thumb:hover{ background:#2a2a2a; }
+/* Breadcrumb en la barra superior */
+.spes-topbar .crumb{ color:var(--muted); font-weight:600; }
+.spes-topbar .crumb-sep{ color:var(--faint); margin:0 4px; }
