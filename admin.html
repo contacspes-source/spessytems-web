@@ -734,11 +734,13 @@
     if(!list.length){ c.innerHTML='<div class="card state">Sin mensajes'+(mode==='prospectos'?' en seguimiento':'')+'.</div>'; return; }
     let h=`<div class="row-actions" style="margin-bottom:12px"><button class="btn sm ${mode==='prospectos'?'ghost':''}" data-mf="mensajes">Todos</button><button class="btn sm ${mode==='prospectos'?'':'ghost'}" data-mf="prospectos">En seguimiento</button></div>
       <p class="hint">${mode==='prospectos'?'Mensajes en seguimiento (leídos / en proceso).':'Mensajes del sitio como mini-CRM. Abre "Detalle" para editar datos, asignar y convertir en cliente.'}</p>
-      <table><thead><tr><th>Contacto</th><th>Mensaje</th><th>Estado</th><th>Responsable</th><th>Fecha</th><th></th></tr></thead><tbody>`;
+      <table><thead><tr><th>Contacto</th><th>Mensaje</th><th>Ciudad</th><th>Giro</th><th>Estado</th><th>Responsable</th><th>Fecha</th><th></th></tr></thead><tbody>`;
     for(const l of list){
       h+=`<tr>
         <td><strong>${esc(l.nombre||'—')}</strong><br><span class="muted">${esc(l.correo||'')}${l.negocio?' · '+esc(l.negocio):''}</span></td>
         <td style="max-width:240px">${esc(String(l.mensaje||'—').slice(0,80))}</td>
+        <td class="muted">${esc(l.ciudad||'—')}</td>
+        <td class="muted">${esc(l.industria||'—')}</td>
         <td>${msgTag(l.estado)}${l.convertido_business_id?' <span class="tag t-activa">cliente</span>':''}</td>
         <td>${esc(l.responsable||'—')}</td>
         <td class="muted">${fdate(l.created_at)}</td>

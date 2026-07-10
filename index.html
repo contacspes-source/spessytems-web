@@ -3,23 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SPES Systems — Control inteligente para tu empresa</title>
-<meta name="description" content="SPES Systems es el punto de venta para fruterías, abarrotes y tiendas. Ventas, inventario y reportes en un solo lugar. Simple, en español y hecho en México.">
+<title>SPES Systems — Punto de venta para tiendas y abarrotes</title>
+<meta name="description" content="SPES POS es el punto de venta para tiendas y abarrotes. Vende sin internet, controla tu inventario y tu dinero, con respaldo en la nube. Simple, en español y hecho en México.">
 <meta name="theme-color" content="#000000">
-<meta property="og:title" content="SPES Systems — Control inteligente para tu empresa">
-<meta property="og:description" content="Punto de venta para tu negocio: ventas, inventario y reportes en un solo lugar.">
+<meta property="og:title" content="SPES Systems — Punto de venta para tiendas y abarrotes">
+<meta property="og:description" content="Vende sin internet, controla tu inventario y tu dinero, con respaldo en la nube. Simple y en español.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://spessystems.com">
 <meta property="og:image" content="https://spessystems.com/assets/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="SPES Systems — Control inteligente para tu empresa">
-<meta name="twitter:description" content="Punto de venta para tu negocio: ventas, inventario y reportes en un solo lugar.">
+<meta name="twitter:title" content="SPES Systems — Punto de venta para tiendas y abarrotes">
+<meta name="twitter:description" content="Vende sin internet, controla tu inventario y tu dinero, con respaldo en la nube.">
 <meta name="twitter:image" content="https://spessystems.com/assets/og-image.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23000000'/%3E%3Ctext x='44' y='73' font-family='Georgia,serif' font-size='72' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3Ccircle cx='72' cy='67' r='7' fill='%239ca3af'/%3E%3C/svg%3E">
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -69,6 +68,30 @@ tailwind.config = {
   @keyframes shine { to{background-position:-200% center} }
   .fade-up { opacity:0; transform:translateY(28px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
   .fade-up.in { opacity:1; transform:none; }
+  .faq-up { opacity:0; transform:translateY(24px); transition:opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); }
+  .faq-up.in { opacity:1; transform:none; }
+  .ring-anim { animation:spin 22s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  .typed::after { content:'▍'; animation:blink 1s steps(1) infinite; color:#9ca3af; }
+  @keyframes blink { 50%{opacity:0} }
+
+
+  /* FAQ interactivo */
+  #faq details { transition:background .3s ease, border-color .3s ease; }
+  #faq details:hover { border-color:rgba(255,255,255,.25); background:rgba(255,255,255,.04); }
+  #faq details[open] { border-color:rgba(255,255,255,.35); background:rgba(255,255,255,.06); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .faq-ic { transition:transform .35s cubic-bezier(.2,.7,.2,1), background .3s ease, color .3s ease, border-color .3s ease; }
+  #faq details[open] .faq-ic { transform:rotate(45deg); background:#fff; color:#000; border-color:#fff; }
+  @keyframes faqOpen { from{opacity:0; transform:translateY(-6px)} to{opacity:1; transform:none} }
+  #faq details[open] .faq-body { animation:faqOpen .35s cubic-bezier(.2,.7,.2,1) both; }
+
+  /* Marquee con desvanecido en los bordes */
+  .marquee-wrap { mask-image:linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+    -webkit-mask-image:linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+
+  /* Foco de teclado consistente */
+  a:focus-visible, button:focus-visible, summary:focus-visible { outline:2px solid rgba(255,255,255,.6); outline-offset:3px; border-radius:9999px; }
   .card { position:relative; transition:transform .35s ease, border-color .35s ease, background .35s ease; }
   .card:hover { transform:translateY(-6px); border-color:rgba(255,255,255,.35); background:rgba(255,255,255,.05); }
   .card::before { content:''; position:absolute; inset:0; border-radius:inherit; opacity:0; transition:opacity .35s;
@@ -76,10 +99,6 @@ tailwind.config = {
   .card:hover::before { opacity:1; }
   ::selection { background:#fff; color:#000; }
   .glow { box-shadow:0 0 90px -25px rgba(255,255,255,.4); }
-  .ring-anim { animation:spin 22s linear infinite; }
-  @keyframes spin { to{transform:rotate(360deg)} }
-  .typed::after { content:'▍'; animation:blink 1s steps(1) infinite; color:#9ca3af; }
-  @keyframes blink { 50%{opacity:0} }
   .marquee { display:flex; gap:3rem; width:max-content; animation:scrollx 28s linear infinite; }
   @keyframes scrollx { to{transform:translateX(-50%)} }
   .pulse-dot { animation:pdot 1.6s ease-in-out infinite; }
@@ -120,10 +139,6 @@ tailwind.config = {
         <div class="absolute left-1/2 -translate-x-1/2 top-full pt-3 hidden group-hover:block">
           <div class="w-72 rounded-xl border border-white/10 bg-black/95 backdrop-blur-xl p-2 shadow-2xl">
             <a href="/pos" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Tiendas y abarrotes</span><span class="text-[10px] text-emerald-400 border border-emerald-400/30 rounded-full px-2 py-0.5">Disponible</span></a>
-            <a href="/restaurantes" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Restaurantes</span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Acceso anticipado</span></a>
-            <a href="#contacto" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white">Gimnasios</span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Próximamente</span></a>
-            <div class="h-px bg-white/10 my-1.5 mx-2"></div>
-            <a href="#contacto" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition"><span class="text-white leading-tight">Landing pages y marketing<br><span class="text-[11px] text-white/40">Servicio complementario</span></span><span class="text-[10px] text-white/60 border border-white/15 rounded-full px-2 py-0.5 shrink-0">Servicio</span></a>
           </div>
         </div>
       </div>
@@ -132,7 +147,7 @@ tailwind.config = {
       <a href="#contacto" class="hover:text-white transition">Contacto</a>
     </div>
     <div class="flex items-center gap-2">
-      <a href="#descarga" class="hidden sm:inline-block text-sm font-semibold bg-white text-ink px-4 py-2 rounded-full hover:scale-105 transition">Probar SPES</a>
+      <a href="#contacto" class="hidden sm:inline-block text-sm font-semibold bg-white text-ink px-4 py-2 rounded-full hover:scale-105 transition">Contáctanos</a>
       <button id="navToggle" aria-label="Menú" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg border border-white/15 text-white">
         <svg id="navIconOpen" viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <svg id="navIconClose" viewBox="0 0 24 24" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -144,19 +159,16 @@ tailwind.config = {
       <a href="#producto" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Producto</a>
       <div class="py-2 text-white/40 text-xs uppercase tracking-wider">Soluciones</div>
       <a href="/pos" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Tiendas y abarrotes</a>
-      <a href="/restaurantes" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Restaurantes</a>
-      <a href="#contacto" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Gimnasios <span class="text-[10px] text-white/40">Próximamente</span></a>
-      <a href="#contacto" class="py-2.5 pl-3 text-white/80 hover:text-white border-b border-white/5">Landing pages y marketing <span class="text-[10px] text-white/40">Servicio</span></a>
       <a href="#planes" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">Planes</a>
       <a href="#faq" class="py-2.5 text-white/80 hover:text-white border-b border-white/5">FAQ</a>
       <a href="#contacto" class="py-2.5 text-white/80 hover:text-white">Contacto</a>
-      <a href="#descarga" class="mt-3 text-center bg-white text-ink font-semibold py-2.5 rounded-full">Probar SPES</a>
+      <a href="#contacto" class="mt-3 text-center bg-white text-ink font-semibold py-2.5 rounded-full">Contáctanos</a>
     </div>
   </div>
 </header>
 
 <!-- HERO -->
-<section id="top" class="relative min-h-screen flex items-center overflow-hidden pt-20 pb-24 sm:pt-16 sm:pb-0">
+<section id="top" class="relative min-h-screen flex items-center overflow-hidden pt-24 pb-24 sm:pt-20 sm:pb-24">
   <div class="grid-floor"></div>
   <div class="aura w-[520px] h-[520px] -top-32 left-1/3"></div>
   <div class="aura w-[380px] h-[380px] bottom-0 right-10" style="animation-delay:-6s"></div>
@@ -164,7 +176,7 @@ tailwind.config = {
     <div>
       <span class="inline-flex items-center gap-2 text-xs font-medium text-smoke border border-white/15 rounded-full px-3 py-1 mb-7 backdrop-blur">
         <span class="w-1.5 h-1.5 rounded-full bg-white pulse-dot"></span>
-        Punto de venta + automatización con IA
+        Punto de venta para tiendas y abarrotes
       </span>
       <h1 class="text-[2.5rem] leading-[1.1] sm:text-6xl lg:text-7xl font-extrabold leading-[1.04] tracking-tight">
         Control inteligente<br>para <span class="shimmer">tu negocio.</span>
@@ -175,13 +187,13 @@ tailwind.config = {
         en un solo sistema. Simple, en español y pensado para crecer contigo.
       </p>
       <div class="mt-9 flex flex-wrap items-center gap-4">
-        <a href="#descarga" class="group bg-white text-ink font-semibold px-7 py-3.5 rounded-full hover:scale-105 transition glow inline-flex items-center gap-2">
-          Probar SPES POS <span class="group-hover:translate-x-1 transition">→</span>
+        <a href="#contacto" class="group bg-white text-ink font-semibold px-7 py-3.5 rounded-full hover:scale-105 transition glow inline-flex items-center gap-2">
+          Contáctanos <span class="group-hover:translate-x-1 transition">→</span>
         </a>
         <a href="/pos" class="border border-white/25 text-white font-semibold px-7 py-3.5 rounded-full hover:bg-white/10 transition">Ver el sistema</a>
       </div>
-      <div class="mt-9 flex items-center gap-6 text-xs text-white/40">
-        <span>✓ Demo gratis</span><span>✓ Soporte en español</span><span>✓ Multisucursal listo</span>
+      <div class="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-white/40">
+        <span>✓ Demo gratis con tus productos</span><span>✓ Funciona sin internet</span><span>✓ Respaldo en la nube</span>
       </div>
     </div>
     <div class="relative flex justify-center" style="perspective:1000px;">
@@ -196,11 +208,11 @@ tailwind.config = {
       </div>
     </div>
   </div>
-  <div class="absolute bottom-6 inset-x-0 text-center text-xs text-white/30 z-10">↓ Desliza para conocer SPES</div>
+  <div class="absolute bottom-5 inset-x-0 text-center text-xs text-white/30 z-10 pointer-events-none">↓ Desliza para conocer SPES</div>
 </section>
 
 <!-- MARQUEE -->
-<section class="py-6 border-y border-white/10 overflow-hidden bg-white/[0.02]">
+<section class="py-6 border-y border-white/10 overflow-hidden bg-white/[0.02] marquee-wrap">
   <div class="marquee mono text-sm text-white/40 uppercase tracking-widest">
     <span>Ventas</span><span>•</span><span>Inventario</span><span>•</span><span>Reportes</span><span>•</span><span>Caja</span><span>•</span><span>Clientes</span><span>•</span><span>Compras</span><span>•</span><span>Etiquetas</span><span>•</span><span>Multisucursal</span><span>•</span>
     <span>Ventas</span><span>•</span><span>Inventario</span><span>•</span><span>Reportes</span><span>•</span><span>Caja</span><span>•</span><span>Clientes</span><span>•</span><span>Compras</span><span>•</span><span>Etiquetas</span><span>•</span><span>Multisucursal</span><span>•</span>
@@ -265,36 +277,42 @@ tailwind.config = {
   <div class="max-w-5xl mx-auto px-5 relative z-10 text-center">
     <p class="text-smoke text-sm tracking-[0.3em] uppercase mb-4 mono fade-up">El producto</p>
     <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight fade-up">Mira el POS por dentro</h2>
-    <p class="mt-4 text-white/60 max-w-2xl mx-auto fade-up">La pantalla de ventas real: tactil, en espanol y lista para cobrar rapido. Explorala a fondo en su pagina dedicada.</p>
+    <p class="mt-4 text-white/60 max-w-2xl mx-auto fade-up">Reportes claros para saber qué vendes, qué ganas y qué comprar — sin sacar la calculadora. Explóralo a fondo en su página dedicada.</p>
     <a href="/pos" class="group block mt-10 fade-up">
       <div class="relative rounded-2xl border border-white/15 bg-[#0c0c0c] overflow-hidden glow shadow-2xl">
         <div class="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 bg-white/[0.03]">
           <span class="w-3 h-3 rounded-full bg-white/20"></span><span class="w-3 h-3 rounded-full bg-white/20"></span><span class="w-3 h-3 rounded-full bg-white/20"></span>
-          <span class="ml-3 text-xs text-white/40 mono">SPES POS - Ventas</span>
+          <span class="ml-3 text-xs text-white/40 mono">SPES POS — Reportes</span>
         </div>
-        <div class="relative bg-white">
-          <div class="grid grid-cols-[1.6fr_1fr] h-56 sm:h-64">
-            <div class="p-4 border-r border-gray-200">
-              <div class="h-7 rounded-lg bg-gray-100 mb-3"></div>
-              <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-                <div class="aspect-square rounded-lg border border-gray-200 bg-gray-50"></div>
-              </div>
+        <div class="relative pos pos-bg text-left">
+          <div class="p-4 sm:p-5">
+            <div class="grid grid-cols-3 gap-2.5 text-[11px]">
+              <div class="rounded-lg border pos-bd pos-panel p-3"><div class="pos-muted">Ventas de hoy</div><div class="font-extrabold text-lg mono">$8,420</div></div>
+              <div class="rounded-lg border pos-bd pos-panel p-3"><div class="pos-muted">Ticket promedio</div><div class="font-extrabold text-lg mono">$146</div></div>
+              <div class="rounded-lg border pos-bd pos-panel p-3"><div class="pos-muted">Tickets</div><div class="font-extrabold text-lg mono">312</div></div>
             </div>
-            <div class="p-4 flex flex-col text-left">
-              <div class="h-5 w-24 rounded bg-gray-100 mb-3"></div>
-              <div class="space-y-2 flex-1">
-                <div class="h-9 rounded bg-gray-50 border border-gray-100"></div>
-                <div class="h-9 rounded bg-gray-50 border border-gray-100"></div>
-                <div class="h-9 rounded bg-gray-50 border border-gray-100"></div>
+            <div class="grid sm:grid-cols-2 gap-2.5 mt-2.5 text-[11px]">
+              <div class="rounded-lg border pos-bd pos-chip p-3">
+                <div class="pos-muted mb-2">Ventas por hora</div>
+                <div class="flex items-end gap-1 h-16">
+                  <div class="flex-1 rounded-sm pos-panel" style="height:30%"></div>
+                  <div class="flex-1 rounded-sm pos-panel" style="height:45%"></div>
+                  <div class="flex-1 rounded-sm pos-panel" style="height:70%"></div>
+                  <div class="flex-1 rounded-sm pos-accent" style="height:100%"></div>
+                  <div class="flex-1 rounded-sm pos-panel" style="height:60%"></div>
+                  <div class="flex-1 rounded-sm pos-panel" style="height:80%"></div>
+                  <div class="flex-1 rounded-sm pos-panel" style="height:50%"></div>
+                  <div class="flex-1 rounded-sm pos-panel" style="height:35%"></div>
+                </div>
               </div>
-              <div class="h-10 rounded-lg bg-gray-900 mt-3"></div>
+              <div class="rounded-lg border pos-bd pos-chip p-3">
+                <div class="pos-muted mb-2">Más vendidos</div>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between"><span>Coca-Cola 600 ml</span><span class="mono pos-muted">64</span></div>
+                  <div class="flex justify-between"><span>Manzana</span><span class="mono pos-muted">41 kg</span></div>
+                  <div class="flex justify-between"><span>Pan blanco</span><span class="mono pos-muted">38</span></div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent flex items-end justify-center pb-7">
@@ -338,6 +356,7 @@ tailwind.config = {
       <div class="card p-6 rounded-xl border border-white/10"><div class="text-3xl font-extrabold mono"><span class="counter" data-to="312">0</span></div><div class="text-xs text-white/50 mt-1">Tickets hoy</div></div>
       <div class="card p-6 rounded-xl border border-white/10"><div class="text-3xl font-extrabold mono"><span class="counter" data-to="9">0</span></div><div class="text-xs text-white/50 mt-1">Productos top</div></div>
     </div>
+    <p class="mt-6 text-xs text-white/35">Cifras de ejemplo — así se ve un día cualquiera con SPES.</p>
   </div>
 </section>
 
@@ -410,8 +429,8 @@ tailwind.config = {
       <div class="card fade-up p-8 rounded-2xl border border-white/10 flex flex-col">
         <h3 class="text-lg font-bold">Básico</h3><p class="text-white/50 text-sm mt-1">Para una tienda que arranca</p>
         <div class="mt-5 mb-6">
-          <span class="text-4xl font-extrabold" data-plan-price="basico">$349</span><span class="text-white/50 text-sm"> /mes</span>
-          <div class="text-xs text-white/45 mt-1" data-plan-annual="basico">o $3,490/año · ahorra 2 meses</div>
+          <span class="text-4xl font-extrabold" data-plan-price="basico">$369</span><span class="text-white/50 text-sm"> /mes</span>
+          <div class="text-xs text-white/45 mt-1" data-plan-annual="basico">o $3,690/año · ahorra 2 meses</div>
         </div>
         <ul class="space-y-2.5 text-sm text-white/65 flex-1"><li>✓ 1 sucursal, 1–2 cajas</li><li>✓ Ventas e inventario completos</li><li>✓ Reportes esenciales</li><li>✓ Soporte en español</li></ul>
         <a href="#contacto" class="mt-7 text-center border border-white/25 rounded-full py-2.5 font-semibold hover:bg-white/10 transition">Empezar</a>
@@ -437,17 +456,6 @@ tailwind.config = {
       </div>
     </div>
 
-    <!-- ADD-ON IA -->
-    <div class="mt-7 fade-up p-9 sm:p-11 rounded-2xl border-2 border-white bg-white/[0.05] text-center glow relative">
-      <div class="w-14 h-14 mx-auto mb-5 rounded-2xl border border-white/25 flex items-center justify-center text-white">
-        <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/><rect x="4" y="8" width="16" height="12" rx="2"/></svg>
-      </div>
-      <span class="inline-block bg-white text-ink text-xs font-bold px-3 py-1 rounded-full mb-4">Add-on premium</span>
-      <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Automatizaciones con agentes de IA</h3>
-      <p class="mt-3 text-white/70 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">Atención por WhatsApp, seguimiento a clientes y reportes automáticos. Lo último en IA, configurado para tu negocio.</p>
-      <div class="mono text-sm text-white/60 mt-5 mb-6">Precio según alcance · cotización a tu medida</div>
-      <a href="#contacto" class="inline-block bg-white text-ink font-semibold px-8 py-3 rounded-full hover:scale-105 transition">Cotizar automatización</a>
-    </div>
 
     <!-- INCLUIDO EN TODOS LOS PLANES -->
     <div class="mt-5 fade-up p-8 rounded-2xl border border-white/10">
@@ -458,7 +466,7 @@ tailwind.config = {
             <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           </div>
           <div class="font-bold">Manual a la medida</div>
-          <div class="text-sm text-white/55 mt-1 leading-relaxed">De tu giro: gimnasio, tienda o restaurante.</div>
+          <div class="text-sm text-white/55 mt-1 leading-relaxed">Hecho para tu giro: tienda o abarrotes.</div>
         </div>
         <div class="text-center">
           <div class="w-12 h-12 mx-auto mb-3.5 rounded-2xl border border-white/15 flex items-center justify-center text-white">
@@ -470,7 +478,7 @@ tailwind.config = {
       </div>
     </div>
 
-    <p class="text-center text-xs text-white/40 mt-8">Precios en MXN, sin IVA. Incluye actualizaciones y soporte en español. ¿Prefieres pago único? <a href="#contacto" class="underline hover:text-white">Pregúntanos</a>.</p>
+    <p class="text-center text-xs text-white/40 mt-8">Precios en MXN más IVA. Incluye actualizaciones y soporte en español. ¿Prefieres pago único? <a href="#contacto" class="underline hover:text-white">Pregúntanos</a>.</p>
   </div>
 </section>
 
@@ -479,16 +487,16 @@ tailwind.config = {
   <div class="aura w-[460px] h-[460px] left-1/2 -translate-x-1/2 top-0 opacity-40"></div>
   <div class="max-w-3xl mx-auto px-5 text-center fade-up relative z-10">
     <span class="logo-S text-6xl font-black text-white">S<span class="text-smoke">.</span></span>
-    <h2 class="mt-6 text-3xl sm:text-5xl font-extrabold tracking-tight">Lleva el control de tu negocio</h2>
-    <p class="mt-4 text-white/65 max-w-xl mx-auto">SPES POS para Windows. Déjanos tu correo y serás de los primeros en descargarlo — con demo gratis.</p>
+    <h2 class="mt-6 text-3xl sm:text-5xl font-extrabold tracking-tight">Empieza a controlar tu negocio hoy</h2>
+    <p class="mt-4 text-white/65 max-w-xl mx-auto">SPES POS ya está funcionando en negocios reales. Agenda una demo gratis: te lo mostramos con tus propios productos y, si te convence, lo dejamos instalado y funcionando.</p>
     <div class="mt-9 flex flex-wrap justify-center gap-4">
-      <a href="#contacto" class="bg-white text-ink font-semibold px-8 py-3.5 rounded-full hover:scale-105 transition glow">Avísame del lanzamiento</a>
+      <a href="#contacto" class="bg-white text-ink font-semibold px-8 py-3.5 rounded-full hover:scale-105 transition glow">Contáctanos</a>
       <span class="inline-flex items-center gap-2 border border-white/15 text-white/60 font-medium px-6 py-3.5 rounded-full">
         <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zM3 12.5h7.5v7.1L3 18.5v-6zM11.5 4.2 21 3v8.5h-9.5V4.2zM11.5 12.5H21V21l-9.5-1.3v-7.2z"/></svg>
-        Windows · Próximamente
+        Windows 10/11
       </span>
     </div>
-    <p class="mt-5 text-xs text-white/40">Versión beta para early adopters · Instalador firmado para Windows</p>
+    <p class="mt-5 text-xs text-white/40">Demo gratis · Instalación asistida incluida · Sin permanencia</p>
   </div>
 </section>
 
@@ -500,40 +508,40 @@ tailwind.config = {
       <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight">Resolvemos tus dudas</h2>
     </div>
     <div class="space-y-3">
-      <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
-        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Para qué tipo de negocios sirve SPES POS?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
-        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">Está pensado para fruterías, abarrotes, minisúper y tiendas similares. Próximamente tendremos variantes para restaurantes, gimnasios y más giros.</div>
+      <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
+        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Para qué tipo de negocios sirve SPES POS?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
+        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">Está hecho para tiendas, abarrotes y minisúper. Otros giros, como restaurantes y gimnasios, llegarán próximamente como ediciones del mismo sistema.</div>
       </details>
-      <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
-        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Funciona sin internet?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
-        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">Sí. SPES POS es una aplicación de escritorio que corre en tu equipo, así que puedes vender aunque se caiga el internet. La sincronización en la nube llegará más adelante.</div>
+      <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
+        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Funciona sin internet?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
+        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">Sí, al cien por ciento. SPES POS corre en tu computadora: puedes vender, cobrar y consultar todo aunque se caiga el internet. Y cuando hay conexión, tu información se respalda automáticamente en la nube — aunque la computadora se descomponga o te la roben, tu negocio no se pierde.</div>
       </details>
-      <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
-        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Necesito comprar hardware nuevo?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
-        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">No necesariamente. Funciona con el equipo que ya tengas, y si quieres te armamos un kit completo (impresora de tickets, lector de código de barras y cajón de dinero) listo para usar.</div>
+      <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
+        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Necesito comprar hardware nuevo?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
+        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">No necesariamente. Funciona con el equipo que ya tengas, y si quieres te armamos un kit completo (impresora de tickets, lector de código de barras y cajón de dinero) listo para usar.</div>
       </details>
-      <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
-        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Cuánto cuesta?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
-        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">Estamos por anunciar los planes. Los primeros clientes (early adopters) tendrán condiciones especiales. Escríbenos y te compartimos los detalles según tu negocio.</div>
+      <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
+        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Cuánto cuesta?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
+        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">Los planes van desde $369 al mes — puedes verlos completos en la sección de planes. Los primeros 10 negocios entran con precio fundador: 2 meses gratis y precio congelado de por vida.</div>
       </details>
-      <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
-        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Ofrecen soporte?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
-        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">Sí, brindamos soporte en español para ayudarte con la instalación, el uso y cualquier duda de tu día a día.</div>
+      <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
+        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Ofrecen soporte?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
+        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">Sí, soporte en español y directo con nosotros: te ayudamos con la instalación, el uso y cualquier duda de tu día a día.</div>
       </details>
-      <details class="group fade-up border border-white/10 rounded-xl bg-white/[0.02]">
-        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Cómo puedo probarlo?<span class="text-smoke text-xl group-open:rotate-45 transition shrink-0">+</span></summary>
-        <div class="px-5 pb-4 text-white/60 text-sm leading-relaxed">Te damos una demo gratis con tus propios productos. Escríbenos desde el formulario de contacto y agendamos para mostrarte SPES POS en acción.</div>
+      <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
+        <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Cómo puedo probarlo?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
+        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">Agenda una demo gratis: te mostramos SPES POS funcionando con tus propios productos. Escríbenos desde el formulario de contacto y te respondemos en menos de 24 horas.</div>
       </details>
     </div>
   </div>
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-    {"@type":"Question","name":"¿Para qué tipo de negocios sirve SPES POS?","acceptedAnswer":{"@type":"Answer","text":"Está pensado para fruterías, abarrotes, minisúper y tiendas similares. Próximamente tendremos variantes para restaurantes, gimnasios y más giros."}},
-    {"@type":"Question","name":"¿Funciona sin internet?","acceptedAnswer":{"@type":"Answer","text":"Sí. SPES POS es una aplicación de escritorio que corre en tu equipo, así que puedes vender aunque se caiga el internet."}},
+    {"@type":"Question","name":"¿Para qué tipo de negocios sirve SPES POS?","acceptedAnswer":{"@type":"Answer","text":"Está hecho para tiendas, abarrotes y minisúper. Otros giros, como restaurantes y gimnasios, llegarán próximamente como ediciones del mismo sistema."}},
+    {"@type":"Question","name":"¿Funciona sin internet?","acceptedAnswer":{"@type":"Answer","text":"Sí, al cien por ciento. SPES POS corre en tu computadora: puedes vender aunque se caiga el internet, y tu información se respalda automáticamente en la nube cuando hay conexión."}},
     {"@type":"Question","name":"¿Necesito comprar hardware nuevo?","acceptedAnswer":{"@type":"Answer","text":"No necesariamente. Funciona con el equipo que ya tengas, y si quieres te armamos un kit completo con impresora, lector y cajón de dinero."}},
-    {"@type":"Question","name":"¿Cuánto cuesta?","acceptedAnswer":{"@type":"Answer","text":"Estamos por anunciar los planes. Los primeros clientes tendrán condiciones especiales. Escríbenos para los detalles."}},
-    {"@type":"Question","name":"¿Ofrecen soporte?","acceptedAnswer":{"@type":"Answer","text":"Sí, brindamos soporte en español para la instalación, el uso y cualquier duda."}},
-    {"@type":"Question","name":"¿Cómo puedo probarlo?","acceptedAnswer":{"@type":"Answer","text":"Te damos una demo gratis con tus propios productos. Escríbenos desde el formulario de contacto."}}
+    {"@type":"Question","name":"¿Cuánto cuesta?","acceptedAnswer":{"@type":"Answer","text":"Los planes van desde $369 MXN al mes. Los primeros 10 negocios entran con precio fundador: 2 meses gratis y precio congelado de por vida."}},
+    {"@type":"Question","name":"¿Ofrecen soporte?","acceptedAnswer":{"@type":"Answer","text":"Sí, soporte en español y directo con nosotros: instalación, uso y cualquier duda del día a día."}},
+    {"@type":"Question","name":"¿Cómo puedo probarlo?","acceptedAnswer":{"@type":"Answer","text":"Agenda una demo gratis: te mostramos SPES POS con tus propios productos. Escríbenos desde el formulario y te respondemos en menos de 24 horas."}}
   ]}
   </script>
 </section>
@@ -543,7 +551,8 @@ tailwind.config = {
   <div class="max-w-2xl mx-auto px-5 text-center fade-up">
     <p class="text-smoke text-sm tracking-[0.3em] uppercase mb-4 mono">Contacto</p>
     <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight">Hablemos de tu negocio</h2>
-    <p class="mt-4 text-white/65">Demo gratis, dudas o cotización: escríbenos y te respondemos.</p>
+    <p class="mt-4 text-white/65">Demo gratis, dudas o cotización: escríbenos y te respondemos en menos de 24 horas.</p>
+    <p class="mt-3 hidden" id="waRow"><a id="waLink" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 border border-white/25 text-white font-semibold px-6 py-3 rounded-full hover:bg-white/10 transition"><svg viewBox="0 0 24 24" class="w-4 h-4 fill-current"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5s.8 1.9.8 2c.1.1.1.3 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>Escríbenos por WhatsApp</a></p>
     <form id="leadForm" class="mt-10 grid gap-4 text-left" onsubmit="return handleContacto(event)">
       <div class="grid sm:grid-cols-2 gap-4">
         <input required name="nombre" placeholder="Tu nombre" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
@@ -566,6 +575,11 @@ tailwind.config = {
     </p>
   </div>
 </section>
+
+<!-- WHATSAPP FLOTANTE (se activa al definir WHATSAPP en el script) -->
+<a id="waFloat" href="#" target="_blank" rel="noopener" aria-label="Escríbenos por WhatsApp" class="hidden fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-white text-ink items-center justify-center shadow-2xl hover:scale-110 transition">
+  <svg viewBox="0 0 24 24" class="w-7 h-7 fill-current"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5s.8 1.9.8 2c.1.1.1.3 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.6-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg>
+</a>
 
 <!-- FOOTER -->
 <footer class="border-t border-white/10 py-12">
@@ -598,14 +612,6 @@ tailwind.config = {
     p.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>set(false)));
   })();
 
-  const words=['ventas','inventario','reportes','caja','clientes','tu negocio'];
-  const tEl=document.getElementById('typed'); let wi=0,ci=0,del=false;
-  function tick(){ const w=words[wi]; tEl.textContent= del? w.slice(0,ci--) : w.slice(0,ci++);
-    if(!del && ci>w.length){ del=true; setTimeout(tick,1300); return; }
-    if(del && ci<0){ del=false; ci=0; wi=(wi+1)%words.length; }
-    setTimeout(tick, del?45:85);
-  } tick();
-
   const cio=new IntersectionObserver((es)=>{es.forEach(e=>{ if(!e.isIntersecting) return;
     const el=e.target; cio.unobserve(el); const to=+el.dataset.to, pre=el.dataset.prefix||''; let cur=0; const step=Math.max(1,to/60);
     const run=()=>{cur=Math.min(to,cur+step); el.textContent=pre+Math.round(cur).toLocaleString('es-MX'); if(cur<to) requestAnimationFrame(run);}; run();
@@ -615,19 +621,38 @@ tailwind.config = {
   document.querySelectorAll('.card').forEach(c=>{ c.addEventListener('mousemove',ev=>{const r=c.getBoundingClientRect();
     c.style.setProperty('--mx',(ev.clientX-r.left)+'px'); c.style.setProperty('--my',(ev.clientY-r.top)+'px');}); });
 
-  // Hero logo 3D tilt
+  // Logo 3D tilt (parallax sutil)
   (function(){
     const tl=document.getElementById('tiltLogo'), gl=document.getElementById('tiltGlare');
-    if(!tl) return;
-    const MAX=14; // grados de inclinación
+    if(!tl || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const MAX=8; // grados — sutil
     tl.addEventListener('mousemove', e=>{
       const r=tl.getBoundingClientRect();
       const px=(e.clientX-r.left)/r.width, py=(e.clientY-r.top)/r.height;
-      const rx=(0.5-py)*MAX, ry=(px-0.5)*MAX*1.15; // 15% más de movimiento lateral
-      tl.style.transform='rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg) scale(1.05)';
-      if(gl){ gl.style.opacity='1'; gl.style.background='radial-gradient(circle at '+(px*100)+'% '+(py*100)+'%, rgba(255,255,255,.4), transparent 55%)'; }
+      const rx=(0.5-py)*MAX, ry=(px-0.5)*MAX*1.1;
+      tl.style.transform='rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg) scale(1.03)';
+      if(gl){ gl.style.opacity='1'; gl.style.background='radial-gradient(circle at '+(px*100)+'% '+(py*100)+'%, rgba(255,255,255,.35), transparent 55%)'; }
     });
     tl.addEventListener('mouseleave', ()=>{ tl.style.transform=''; if(gl) gl.style.opacity='0'; });
+  })();
+
+  // Palabra dinámica (máquina de escribir, como el original)
+  (function(){
+    const words=['ventas','inventario','reportes','caja','clientes','tu negocio'];
+    const tEl=document.getElementById('typed'); if(!tEl) return;
+    let wi=0,ci=0,del=false;
+    function tick(){ const w=words[wi]; tEl.textContent= del? w.slice(0,ci--) : w.slice(0,ci++);
+      if(!del && ci>w.length){ del=true; setTimeout(tick,1300); return; }
+      if(del && ci<0){ del=false; ci=0; wi=(wi+1)%words.length; }
+      setTimeout(tick, del?45:85);
+    } tick();
+  })();
+
+
+  // FAQ acordeón: al abrir una, se cierran las demás
+  (function(){
+    const ds=document.querySelectorAll('#faq details');
+    ds.forEach(d=>d.addEventListener('toggle',()=>{ if(d.open) ds.forEach(o=>{ if(o!==d && o.open) o.open=false; }); }));
   })();
 
   // Starfield 3D background (tenue, interactivo)
@@ -716,6 +741,33 @@ tailwind.config = {
     }
     return false;
   }
+
+  // WhatsApp — canal prioritario. Número en formato 52 + 1 (móvil, requerido por WhatsApp) + 10 dígitos, solo dígitos
+  const WHATSAPP='5212206172818';
+  (function(){
+    if(!WHATSAPP) return;
+    const url='https://wa.me/'+WHATSAPP+'?text='+encodeURIComponent('Hola, me interesa SPES POS para mi negocio.');
+    const f=document.getElementById('waFloat'), l=document.getElementById('waLink'), r=document.getElementById('waRow');
+    if(f){ f.href=url; f.classList.remove('hidden'); f.classList.add('flex'); }
+    if(l && r){ l.href=url; r.classList.remove('hidden'); }
+  })();
+
+  // Turnstile: cargar solo cuando el visitante se acerca al formulario
+  (function(){
+    const sec=document.getElementById('contacto'); if(!sec) return;
+    let done=false;
+    const to=new IntersectionObserver(es=>{ es.forEach(e=>{ if(e.isIntersecting && !done){ done=true;
+      const s=document.createElement('script'); s.src='https://challenges.cloudflare.com/turnstile/v0/api.js'; s.async=true; s.defer=true; document.head.appendChild(s); to.disconnect(); } }); },{rootMargin:'600px'});
+    to.observe(sec);
+  })();
+
+  // FAQ dinámico: las preguntas aparecen escalonadas al hacer scroll
+  (function(){
+    const items=[...document.querySelectorAll('#faq details')];
+    const fo=new IntersectionObserver(es=>{ es.forEach(e=>{ if(!e.isIntersecting) return; fo.unobserve(e.target);
+      setTimeout(()=>e.target.classList.add('in'), (items.indexOf(e.target)%6)*110); }); },{threshold:.15});
+    items.forEach(d=>fo.observe(d));
+  })();
 </script>
 <script>
 /* Precios dinámicos desde el panel (tabla planes). Si falla, quedan los valores de respaldo del HTML. */
