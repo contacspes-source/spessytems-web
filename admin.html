@@ -5,125 +5,58 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>SPES · Panel de Administración</title>
-<style>
-  :root{ color-scheme: light; --bg:#f4f4f5; --panel:#fff; --bd:#e4e4e7; --bd2:#f0f0f1; --ink:#18181b; --muted:#71717a; --faint:#a1a1aa; --accent:#000; }
-  *{ box-sizing:border-box; margin:0; padding:0; }
-  body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; background:var(--bg); color:var(--ink); }
-  .hidden{ display:none !important; }
-  a{ color:inherit; }
-  #login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .card{ background:var(--panel); border:1px solid var(--bd); border-radius:16px; }
-  .loginbox{ width:100%; max-width:360px; padding:32px; text-align:center; }
-  .logo{ width:48px;height:48px;border-radius:12px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:800;font-size:24px;margin:0 auto 14px; }
-  h1{ font-size:18px; font-weight:800; }
-  .muted{ color:var(--muted); font-size:13px; }
-  input,select,textarea{ width:100%; padding:10px 12px; border:1px solid #d4d4d8; border-radius:9px; font-size:14px; margin-top:10px; background:#fff; font-family:inherit; }
-  button{ font-family:inherit; cursor:pointer; }
-  .btn{ background:#000; color:#fff; border:0; border-radius:9px; padding:9px 14px; font-weight:700; font-size:13px; }
-  .btn:hover{ opacity:.9; } .btn.sm{ padding:5px 10px; font-size:12px; border-radius:7px; }
-  .btn.ghost{ background:#fff; color:var(--ink); border:1px solid #d4d4d8; }
-  .btn.danger{ background:#dc2626; color:#fff; }
-  .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:#dc2626; } .ok{ color:#16a34a; }
-  #app{ display:flex; min-height:100vh; }
-  aside{ width:230px; background:#0b0b0c; color:#e4e4e7; flex-shrink:0; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
-  aside .brand{ display:flex; align-items:center; gap:10px; padding:16px 18px; border-bottom:1px solid #27272a; position:sticky; top:0; background:#0b0b0c; }
-  aside .brand .logo{ width:30px;height:30px;font-size:15px;border-radius:8px;margin:0; }
-  aside .brand b{ font-size:14px; }
-  nav{ padding:8px 8px 24px; }
-  nav .grp{ font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#71717a; padding:14px 12px 6px; }
-  nav a{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border-radius:8px; font-size:13px; color:#d4d4d8; text-decoration:none; cursor:pointer; }
-  nav a:hover{ background:#1c1c1f; color:#fff; }
-  nav a.active{ background:#fff; color:#000; font-weight:600; }
-  nav a .soon{ font-size:9px; background:#27272a; color:#a1a1aa; border-radius:5px; padding:1px 5px; }
-  nav a.active .soon{ background:#e4e4e7; color:#52525b; }
-  .wrap{ flex:1; min-width:0; display:flex; flex-direction:column; }
-  header{ background:#fff; border-bottom:1px solid var(--bd); padding:12px 22px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
-  header .vt{ font-size:15px; font-weight:800; } header .sp{ margin-left:auto; }
-  main{ padding:22px; max-width:1180px; width:100%; }
-  #menuBtn{ display:none; }
-  @media(max-width:860px){
-    aside{ position:fixed; left:0; top:0; z-index:40; transform:translateX(-100%); transition:transform .2s; }
-    aside.open{ transform:none; }
-    #menuBtn{ display:inline-flex; }
-  }
-  .kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
-  @media(max-width:860px){ .kpis{ grid-template-columns:repeat(2,1fr); } }
-  .kpi{ background:#fff; border:1px solid var(--bd); border-radius:13px; padding:14px; }
-  .kpi .n{ font-size:24px; font-weight:800; } .kpi .l{ font-size:12px; color:var(--muted); margin-top:2px; }
-  .kpi.soon{ opacity:.6; } .kpi .soontag{ font-size:9px; background:#f4f4f5; color:#71717a; border-radius:5px; padding:1px 6px; }
-  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  @media(max-width:860px){ .grid2{ grid-template-columns:1fr; } }
-  .sec{ margin-bottom:18px; }
-  .sechead{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-  .sechead h2{ font-size:15px; font-weight:800; } .sechead .sp{ margin-left:auto; }
-  table{ width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--bd); border-radius:13px; overflow:hidden; font-size:13px; }
-  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); padding:9px 12px; border-bottom:1px solid var(--bd2); background:#fafafa; }
-  td{ padding:9px 12px; border-bottom:1px solid #f4f4f5; vertical-align:middle; }
-  tr:last-child td{ border-bottom:0; }
-  .tag{ display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; }
-  .t-activa{ background:#dcfce7; color:#166534; } .t-prueba{ background:#e0e7ff; color:#3730a3; }
-  .t-suspendida{ background:#fee2e2; color:#991b1b; } .t-cancelada{ background:#f4f4f5; color:#52525b; } .t-none{ background:#f4f4f5; color:#52525b; }
-  .t-archivado{ background:#fef3c7; color:#92400e; }
-  .t-nuevo{ background:#dbeafe; color:#1e40af; } .t-leido{ background:#f4f4f5; color:#52525b; } .t-proceso{ background:#fef9c3; color:#854d0e; }
-  .t-respondido{ background:#dcfce7; color:#166534; } .t-web{ background:#e0e7ff; color:#3730a3; } .t-restaurantes{ background:#ffedd5; color:#9a3412; }
-  .danger{ color:#dc2626; } .warn{ color:#d97706; }
-  .row-actions{ display:flex; gap:6px; flex-wrap:wrap; }
-  .state{ padding:24px; text-align:center; color:var(--muted); }
-  .hint{ font-size:12px; color:var(--muted); margin-bottom:10px; }
-  .panel{ background:#fff; border:1px solid var(--bd); border-radius:13px; padding:16px; }
-  .panel h3{ font-size:13px; font-weight:800; margin-bottom:10px; }
-  .feed{ list-style:none; display:flex; flex-direction:column; gap:2px; }
-  .feed li{ display:flex; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid #f4f4f5; font-size:13px; }
-  .feed li:last-child{ border-bottom:0; }
-  .feed .dot{ width:7px;height:7px;border-radius:99px;flex-shrink:0;background:#a1a1aa; }
-  .feed .d-pago{ background:#16a34a; } .feed .d-registro{ background:#2563eb; } .feed .d-mensaje{ background:#d97706; }
-  .feed time{ color:var(--faint); font-size:11px; white-space:nowrap; }
-  .back{ font-size:13px; color:#2563eb; cursor:pointer; display:inline-block; margin-bottom:12px; }
-  .kv{ display:grid; grid-template-columns:140px 1fr; gap:6px 12px; font-size:13px; }
-  .kv dt{ color:var(--muted); } .kv dd{ font-weight:600; }
-  .soonbox{ padding:40px; text-align:center; color:var(--muted); }
-  .soonbox .big{ font-size:16px; font-weight:800; color:var(--ink); margin-bottom:6px; }
-  /* MODAL */
-  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
-  .modal{ background:#fff; border-radius:14px; padding:22px; width:100%; max-width:430px; box-shadow:0 20px 60px -20px rgba(0,0,0,.4); max-height:90vh; overflow-y:auto; }
-  .modal h3{ font-size:16px; font-weight:800; margin-bottom:2px; }
-  .flbl{ display:block; font-size:12px; color:#71717a; margin-top:10px; font-weight:600; }
-  .mtotal{ margin-top:14px; font-weight:800; font-size:18px; }
-  .mrow{ display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
-  #filebanner{ background:#fef2f2; color:#991b1b; border-bottom:1px solid #fecaca; padding:12px 18px; font-size:13px; text-align:center; }
-  #filebanner code{ background:#fff; padding:1px 6px; border-radius:5px; border:1px solid #fecaca; }
-</style>
+<link rel="icon" type="image/jpeg" href="/assets/spes-logo.jpeg">
+<!-- Rediseño minimalista (Fase 3): el CSS heredado pre-Design-System se eliminó.
+     spes-ui.css es la ÚNICA fuente de verdad visual; abajo solo van overrides del admin. -->
 <link rel="stylesheet" href="/spes-ui.css">
 <style>
-  /* Admin — overrides mínimos sobre el Design System (cargados DESPUÉS para ganar) */
+  /* ===== Admin — overrides sobre el Design System (cargados DESPUÉS para ganar) ===== */
+
+  /* Marca: la "S." oficial (assets/spes-logo.jpeg) */
+  .brandimg{ width:26px; height:26px; border-radius:7px; object-fit:cover; flex-shrink:0; display:block; }
+  .brandimg.lg{ width:60px; height:60px; border-radius:15px; margin:0 auto 16px; box-shadow:0 10px 24px -8px rgba(0,0,0,.35); }
+  .spes-brand .btxt{ display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+  .spes-brand .btxt b{ font-size:13.5px; }
+  .spes-brand .btxt small{ font-size:10.5px; color:var(--sidebar-muted); font-weight:500; white-space:nowrap; }
+  .spes-sidebar.collapsed .spes-brand .btxt{ display:none; }
+
+  /* Login minimalista */
   #login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .loginbox{ width:100%; max-width:360px; padding:34px 30px; text-align:center; }
-  .loginbox .logo{ width:48px;height:48px;border-radius:12px;background:#111318;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:800;font-size:24px;margin:0 auto 14px; }
-  .loginbox h1{ font-size:18px; font-weight:800; }
+  .loginbox{ width:100%; max-width:340px; padding:38px 32px 32px; text-align:center; border:1px solid var(--border); box-shadow:var(--shadow-md); }
+  .loginbox h1{ font-size:17px; font-weight:800; letter-spacing:-.01em; }
+  .loginbox .muted{ margin-top:2px; }
+  .loginbox input{ margin-top:10px; text-align:left; }
   #filebanner{ background:var(--bad-bg); color:var(--bad-fg); border-bottom:1px solid var(--border); padding:12px 18px; font-size:13px; text-align:center; }
   #filebanner code{ background:var(--surface); padding:1px 6px; border-radius:5px; border:1px solid var(--border); }
   #menuBtn{ display:none; } @media(max-width:900px){ #menuBtn{ display:inline-flex; } }
+
+  /* Layout y ritmo */
   .kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:14px; }
   @media(max-width:900px){ .kpis{ grid-template-columns:repeat(2,1fr); } }
+  .kpi .n{ font-size:26px; font-variant-numeric:tabular-nums; }
   .sec{ margin-bottom:22px; }
   .soonbox{ padding:38px; text-align:center; color:var(--muted); }
   .soonbox .big{ font-size:16px; font-weight:800; color:var(--text); margin-bottom:6px; }
   .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:var(--bad-fg); } .ok{ color:var(--ok-fg); }
-  .brand .logo{ font-family:Georgia,serif; }
+  .mtotal{ margin-top:14px; font-weight:800; font-size:18px; }
+  td, .kpi .n, .bval, .listcount{ font-variant-numeric:tabular-nums; }
+
   /* Bloque A (Fase 3): buscador + paginación + skeletons */
   .listbar{ display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
   .listsearch{ max-width:320px; margin:0; }
   .listcount{ font-size:12px; }
   .pager{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px; }
-  .sk{ background:linear-gradient(90deg,#f0f0f1 25%,#e4e4e7 37%,#f0f0f1 63%); background-size:400% 100%; animation:skl 1.2s ease-in-out infinite; border-radius:8px; }
+  .sk{ background:linear-gradient(90deg,var(--neutral-bg) 25%,var(--border) 37%,var(--neutral-bg) 63%); background-size:400% 100%; animation:skl 1.2s ease-in-out infinite; border-radius:8px; }
   @keyframes skl{ 0%{background-position:100% 50%} 100%{background-position:0 50%} }
   .sk-kpi{ height:70px; } .sk-row{ height:38px; margin-bottom:8px; }
+
+  /* Bloque D (Fase 3): barras de analíticas */
   .barrow{ display:flex; align-items:center; gap:10px; margin:7px 0; font-size:13px; }
   .barrow .blbl{ width:130px; min-width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .barrow .bval{ width:90px; min-width:90px; text-align:right; font-weight:700; }
-  .bar{ flex:1; height:8px; background:#f0f0f1; border-radius:4px; overflow:hidden; }
-  .bar>i{ display:block; height:100%; background:var(--ink); border-radius:4px; }
-  .swatch{ display:inline-block; width:16px; height:16px; border-radius:4px; border:1px solid var(--bd); vertical-align:-3px; }
+  .bar{ flex:1; height:8px; background:var(--neutral-bg); border-radius:4px; overflow:hidden; }
+  .bar>i{ display:block; height:100%; background:var(--text); border-radius:4px; }
+  .swatch{ display:inline-block; width:16px; height:16px; border-radius:4px; border:1px solid var(--border); vertical-align:-3px; }
 </style>
 </head>
 <body>
@@ -135,9 +68,9 @@
 
 <div id="login">
   <div class="card loginbox">
-    <div class="logo">S.</div>
-    <h1>Panel de Administración</h1>
-    <p class="muted">SPES Systems</p>
+    <img class="brandimg lg" src="/assets/spes-logo.jpeg" alt="SPES Systems">
+    <h1>SPES Systems</h1>
+    <p class="muted">Panel de administración</p>
     <form id="loginForm">
       <input id="email" type="email" placeholder="Correo" required autocomplete="username">
       <input id="password" type="password" placeholder="Contraseña" required autocomplete="current-password">
@@ -149,7 +82,7 @@
 
 <div id="app" class="spes-app hidden">
   <aside id="aside" class="spes-sidebar">
-    <div class="spes-brand"><span class="logo">S.</span><b>SPES · Admin</b></div>
+    <div class="spes-brand"><img class="brandimg" src="/assets/spes-logo.jpeg" alt="S."><span class="btxt"><b>SPES Systems</b><small>Panel de administración</small></span></div>
     <nav id="nav" class="spes-nav"></nav>
     <button id="collapseBtn" class="spes-nav-item" style="margin:2px 10px 12px;width:auto;border:0;background:transparent;color:var(--sidebar-muted);cursor:pointer"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Colapsar</span></button>
   </aside>
