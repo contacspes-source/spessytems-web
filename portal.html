@@ -8,90 +8,64 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-  *{ box-sizing:border-box; margin:0; padding:0; }
-  :root{ --bd:rgba(255,255,255,.12); --bd2:rgba(255,255,255,.07); --panel:rgba(255,255,255,.03); }
-  body{ font-family:Inter,system-ui,sans-serif; background:#000; color:#f5f5f5; -webkit-font-smoothing:antialiased; }
-  .mono{ font-family:'JetBrains Mono',monospace; }
-  .hidden{ display:none !important; }
-  a{ color:inherit; }
-  input,select,textarea{ width:100%; padding:11px 13px; border:1px solid var(--bd); border-radius:11px; font-size:14px; margin-top:8px; background:rgba(255,255,255,.04); color:#fff; font-family:inherit; }
-  input::placeholder,textarea::placeholder{ color:rgba(255,255,255,.4); }
-  input:focus,select:focus,textarea:focus{ outline:none; border-color:rgba(255,255,255,.5); }
-  select option{ background:#111; }
-  button{ font-family:inherit; cursor:pointer; }
-  .btn{ background:#fff; color:#000; border:0; border-radius:999px; padding:10px 18px; font-weight:700; font-size:14px; transition:transform .15s; }
-  .btn:hover{ transform:scale(1.03); } .btn.sm{ padding:6px 13px; font-size:12px; }
-  .btn.ghost{ background:transparent; color:#fff; border:1px solid var(--bd); }
-  .btn.ghost:hover{ background:rgba(255,255,255,.08); transform:none; }
-  .logo{ width:44px;height:44px;border-radius:12px;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-weight:800;font-size:22px;margin:0 auto 14px; }
-  /* LOGIN */
-  #login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .loginbox{ width:100%; max-width:380px; padding:36px 30px; text-align:center; border:1px solid var(--bd); border-radius:20px; background:var(--panel); }
-  h1{ font-size:19px; font-weight:800; }
-  .muted{ color:rgba(255,255,255,.55); font-size:13px; }
-  .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:#f87171; } .ok{ color:#34d399; }
-  /* APP */
-  header{ border-bottom:1px solid var(--bd); padding:0 20px; position:sticky; top:0; background:rgba(0,0,0,.85); backdrop-filter:blur(14px); z-index:10; }
-  .hbar{ max-width:1000px; margin:0 auto; height:60px; display:flex; align-items:center; gap:12px; }
-  .hbar .brand{ display:flex; align-items:center; gap:9px; font-weight:700; font-size:14px; }
-  .hbar .brand .lg{ width:28px;height:28px;font-size:15px;border-radius:8px;margin:0; }
-  .hbar .sp{ margin-left:auto; }
-  .tabs{ max-width:1000px; margin:0 auto; display:flex; gap:4px; overflow-x:auto; }
-  .tabs a{ padding:11px 14px; font-size:13px; color:rgba(255,255,255,.6); text-decoration:none; white-space:nowrap; border-bottom:2px solid transparent; cursor:pointer; }
-  .tabs a:hover{ color:#fff; }
-  .tabs a.active{ color:#fff; border-bottom-color:#fff; font-weight:600; }
-  main{ max-width:1000px; margin:0 auto; padding:24px 20px 60px; }
-  h2{ font-size:20px; font-weight:800; letter-spacing:-.01em; margin-bottom:4px; }
-  .sub{ color:rgba(255,255,255,.55); font-size:14px; margin-bottom:18px; }
-  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-  @media(max-width:760px){ .cards{ grid-template-columns:1fr; } }
-  .card{ border:1px solid var(--bd); border-radius:15px; padding:18px; background:var(--panel); }
-  .card .n{ font-size:22px; font-weight:800; } .card .l{ font-size:12px; color:rgba(255,255,255,.55); margin-top:3px; }
-  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; } @media(max-width:760px){ .grid2{ grid-template-columns:1fr; } }
-  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:rgba(255,255,255,.5); padding:9px 10px; border-bottom:1px solid var(--bd); }
-  td{ padding:10px; border-bottom:1px solid var(--bd2); }
-  tr:last-child td{ border-bottom:0; }
-  .tag{ display:inline-block; font-size:11px; font-weight:700; padding:2px 10px; border-radius:999px; }
-  .t-ok{ background:rgba(52,211,153,.15); color:#34d399; } .t-warn{ background:rgba(251,191,36,.15); color:#fbbf24; }
-  .t-bad{ background:rgba(248,113,113,.15); color:#f87171; } .t-neutral{ background:rgba(255,255,255,.08); color:rgba(255,255,255,.7); }
-  .kv{ display:grid; grid-template-columns:150px 1fr; gap:8px 12px; font-size:14px; }
-  .kv dt{ color:rgba(255,255,255,.55); } .kv dd{ font-weight:600; }
-  .state{ padding:26px; text-align:center; color:rgba(255,255,255,.5); border:1px dashed var(--bd); border-radius:14px; }
-  .item{ border:1px solid var(--bd); border-radius:13px; padding:15px; margin-bottom:10px; background:var(--panel); }
-  .item h3{ font-size:15px; font-weight:700; }
-  .item .meta{ font-size:12px; color:rgba(255,255,255,.45); margin-top:2px; }
-  .sechead{ display:flex; align-items:center; gap:10px; margin-bottom:14px; } .sechead .sp{ margin-left:auto; }
-  /* MODAL */
-  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
-  .modal{ background:#0c0c0d; border:1px solid var(--bd); border-radius:16px; padding:24px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; }
-  .modal h3{ font-size:16px; font-weight:800; }
-  .flbl{ display:block; font-size:12px; color:rgba(255,255,255,.55); margin-top:12px; font-weight:600; }
-  .mrow{ display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
-  .thread .m{ padding:10px 0; border-bottom:1px solid var(--bd2); }
-  .thread .who{ font-size:12px; color:rgba(255,255,255,.5); margin-bottom:3px; }
-</style>
+<link rel="icon" type="image/jpeg" href="/assets/spes-logo.jpeg">
+<!-- Rediseño minimalista (Fase 3): el CSS heredado pre-Design-System se eliminó.
+     spes-ui.css (tema dark) es la ÚNICA fuente de verdad visual; abajo solo van overrides del portal. -->
 <link rel="stylesheet" href="/spes-ui.css">
 <style>
-  .loginbox .logo{ font-family:Georgia,serif; }
-  .crumb{ color:var(--muted); font-weight:600; } .crumb-sep{ color:var(--faint); margin:0 4px; }
+  /* ===== Portal — overrides sobre el Design System (cargados DESPUÉS para ganar) ===== */
+
+  /* Marca: la "S." oficial (assets/spes-logo.jpeg) */
+  .brandimg{ width:26px; height:26px; border-radius:7px; object-fit:cover; flex-shrink:0; display:block; }
+  .brandimg.lg{ width:60px; height:60px; border-radius:15px; margin:0 auto 16px; box-shadow:0 10px 24px -8px rgba(0,0,0,.6); }
+  .spes-brand .btxt{ display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+  .spes-brand .btxt b{ font-size:13.5px; }
+  .spes-brand .btxt small{ font-size:10.5px; color:var(--sidebar-muted); font-weight:500; white-space:nowrap; }
+  .spes-sidebar.collapsed .spes-brand .btxt{ display:none; }
+
+  /* Login minimalista (dark) */
+  #login{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .loginbox{ width:100%; max-width:360px; padding:38px 32px 30px; text-align:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); }
+  .loginbox h1{ font-size:17px; font-weight:800; letter-spacing:-.01em; }
+  .loginbox .muted{ margin-top:2px; }
+  .loginbox input{ margin-top:10px; text-align:left; }
+  .msg{ font-size:13px; margin-top:12px; min-height:18px; } .err{ color:var(--bad-fg); } .ok{ color:var(--ok-fg); }
+  #menuBtn{ display:none; } @media(max-width:900px){ #menuBtn{ display:inline-flex; } }
+
+  /* Contenido: KPIs del portal usan .card .n/.l */
+  .spes-main h2{ font-size:20px; font-weight:800; margin-bottom:4px; }
+  .sub{ color:var(--muted); font-size:14px; margin-bottom:18px; }
+  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
+  @media(max-width:760px){ .cards{ grid-template-columns:1fr; } }
+  .card{ padding:18px; }
+  .card .n{ font-size:24px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .card .l{ font-size:12.5px; color:var(--muted); margin-top:3px; }
+  td, .card .n{ font-variant-numeric:tabular-nums; }
+  .item{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:15px; margin-bottom:10px; }
+  .item h3{ font-size:15px; font-weight:700; }
+  .item .meta{ font-size:12px; color:var(--faint); margin-top:2px; }
+  .thread .m{ padding:10px 0; border-bottom:1px solid var(--border); }
+  .thread .who{ font-size:12px; color:var(--muted); margin-bottom:3px; }
+
+  /* Dark: el modal y los <option> necesitan fondo sólido (var(--surface) es translúcido) */
+  .modal{ background:#0c0c0d; }
+  select option{ background:#111; }
 </style>
 </head>
 <body>
 
 <div id="login">
   <div class="loginbox">
-    <div class="logo">S.</div>
-    <h1>Portal del cliente</h1>
-    <p class="muted">SPES Systems</p>
+    <img class="brandimg lg" src="/assets/spes-logo.jpeg" alt="SPES Systems">
+    <h1>SPES Systems</h1>
+    <p class="muted">Portal del cliente</p>
     <form id="loginForm">
       <input id="email" type="email" placeholder="Tu correo" required autocomplete="username">
       <input id="password" type="password" placeholder="Tu contraseña" required autocomplete="current-password">
       <button class="btn" style="width:100%;margin-top:14px" type="submit">Entrar</button>
       <p id="loginMsg" class="msg"></p>
     </form>
-    <div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:rgba(255,255,255,.35);font-size:12px"><span style="flex:1;height:1px;background:var(--bd)"></span>o<span style="flex:1;height:1px;background:var(--bd)"></span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:rgba(255,255,255,.35);font-size:12px"><span style="flex:1;height:1px;background:var(--border)"></span>o<span style="flex:1;height:1px;background:var(--border)"></span></div>
     <button class="btn ghost" id="googleBtn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px">
       <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
       Continuar con Google
@@ -102,7 +76,7 @@
 
 <div id="app" class="spes-app hidden">
   <aside id="aside" class="spes-sidebar">
-    <div class="spes-brand"><span class="logo">S.</span><b>SPES · Portal</b></div>
+    <div class="spes-brand"><img class="brandimg" src="/assets/spes-logo.jpeg" alt="S."><span class="btxt"><b>SPES Systems</b><small>Portal del cliente</small></span></div>
     <nav id="nav" class="spes-nav"></nav>
     <button id="collapseBtn" class="spes-nav-item" style="margin:2px 10px 12px;width:auto;border:0;background:transparent;color:var(--sidebar-muted);cursor:pointer"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Colapsar</span></button>
   </aside>
