@@ -175,7 +175,9 @@
   function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
 
   // ===== STATE =====
-  const ST={ uid:null, email:'', tab:'inicio', biz:null, sub:null, PAGOS:[], TICKETS:[], TMSGS:[], ANUNCIOS:[], VERSIONES:[], KB:[], PLANES:[], SALES:[], PRODUCTS:[], STOCK:{}, FLEET:[], ticketId:null };
+  const ST={ uid:null, email:'', tab:'inicio', biz:null, sub:null, PAGOS:[], TICKETS:[], TMSGS:[], ANUNCIOS:[], VERSIONES:[], KB:[], PLANES:[], SALES:[], PRODUCTS:[], STOCK:{}, FLEET:[], ticketId:null,
+    // Bloque P (Fase 2): espejo de lectura de los dominios que sincroniza el Bloque C (ADR-092).
+    PURCHASES:[], RETURNS:[], CASHS:[], CASHMOVS:[], EGRESOS:[], EXPENSES:[], EMPLOYEES:[], CUSTOMERS:[], SUPPLIERS:{}, POINTS:{}, MERMAS:[], MONTH_SALES:[] };
   const TABS=[ ['inicio','Inicio'],['ventas','Ventas'],['inventario','Inventario'],['suscripcion','Mi suscripción'],['recibos','Recibos'],['soporte','Soporte'],['novedades','Novedades'],['ayuda','Ayuda'] ];
 
   async function enter(session){
@@ -186,8 +188,9 @@
   }
   async function loadPortal(){
     const uid=ST.uid;
+    const monthStart=(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString(); })();
     try{
-      const [biz,sub,pg,tk,an,ve,kb,pl,sa,pr,fl,st]=await Promise.all([
+      const [biz,sub,pg,tk,an,ve,kb,pl,sa,pr,fl,st,docs,pts,mov,msa]=await Promise.all([
         sbc.from('businesses').select('*').eq('id',uid).maybeSingle(),
         sbc.from('subscriptions').select('*').eq('business_id',uid).maybeSingle(),
         sbc.from('pagos').select('*').eq('business_id',uid).order('fecha',{ascending:false}),
@@ -199,7 +202,21 @@
         sb.from('sales').select('id,folio,total,status,created_at').eq('account_id',uid).order('created_at',{ascending:false}).limit(500),
         sb.from('records').select('record_id,data').eq('account_id',uid).eq('table_name','products'),
         sbc.from('fleet').select('*').eq('account_id',uid).order('last_seen_at',{ascending:false}),
-        sb.rpc('sync_stock_levels')
+        sb.rpc('sync_stock_levels'),
+        // Bloque P: documentos del Bloque C materializados en records (espejo de lectura).
+        sb.from('records').select('table_name,record_id,data')
+          .eq('account_id',uid)
+          .in('table_name',['purchase_orders','returns','cash_sessions','cash_movements','egresos','expenses','employees','customers','suppliers'])
+          .order('updated_at',{ascending:false}).limit(2500),
+        // Saldo de lealtad = suma del log en el servidor (C1/C3). El campo
+        // loyalty_points dentro de records.customers quedó obsoleto: NO usarlo.
+        sb.rpc('sync_loyalty_levels'),
+        // Mermas/salidas: los movimientos viajan en el log de sync (no en records).
+        sb.from('sync_log').select('id,payload,created_at').eq('account_id',uid)
+          .eq('op_type','stock.movement').order('id',{ascending:false}).limit(600),
+        // Ventas del mes CON renglones (para top de productos en Reportes).
+        sb.from('sales').select('status,created_at,data').eq('account_id',uid)
+          .gte('created_at',monthStart).order('created_at',{ascending:false}).limit(1000)
       ]);
       ST.biz=biz.data||null; ST.sub=sub.data||null;
       ST.PAGOS=(pg.data||[]).map(x=>({...x,created_at:x.created_at||x.fecha}));
@@ -208,6 +225,24 @@
       ST.PRODUCTS=(pr.data||[]).filter(r=>!(r.data&&r.data.is_deleted)).map(r=>({ id:r.record_id, ...(r.data||{}) }));
       ST.FLEET=fl.data||[];
       ST.STOCK={}; (st.data||[]).forEach(x=>{ ST.STOCK[x.product_id]=Number(x.stock); });
+
+      // Bloque P: repartir los documentos por tabla (activos primero, sin borrados).
+      const byTable={}; (docs.data||[]).forEach(r=>{ (byTable[r.table_name]=byTable[r.table_name]||[]).push({ id:r.record_id, ...(r.data||{}) }); });
+      const alive=a=>(a||[]).filter(x=>!x.is_deleted);
+      const byDate=(a,k)=>alive(a).sort((x,y)=>String(y[k]||'').localeCompare(String(x[k]||'')));
+      ST.PURCHASES=byDate(byTable.purchase_orders,'created_at');
+      ST.RETURNS=byDate(byTable.returns,'created_at');
+      ST.CASHS=byDate(byTable.cash_sessions,'opened_at');
+      ST.CASHMOVS=byDate(byTable.cash_movements,'created_at');
+      ST.EGRESOS=byDate(byTable.egresos,'created_at');
+      ST.EXPENSES=alive(byTable.expenses);
+      ST.EMPLOYEES=alive(byTable.employees).sort((a,b)=>String(a.full_name||'').localeCompare(String(b.full_name||'')));
+      ST.CUSTOMERS=alive(byTable.customers).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+      ST.SUPPLIERS={}; alive(byTable.suppliers).forEach(s=>{ ST.SUPPLIERS[s.id]=s.name||'—'; });
+      ST.POINTS={}; (pts.data||[]).forEach(x=>{ ST.POINTS[x.customer_id]=Number(x.points)||0; });
+      // Mermas = ajustes NEGATIVOS de inventario (las ventas descuentan aparte).
+      ST.MERMAS=(mov.data||[]).map(r=>r.payload||{}).filter(p=>p.type==='adjust'&&Number(p.qty_change)<0);
+      ST.MONTH_SALES=(msa.data||[]).filter(s=>s.status!=='cancelled');
     }catch(e){ /* se maneja en render */ }
   }
   const planNombre=cl=>{ const p=ST.PLANES.find(x=>x.clave===cl); return p?p.nombre:(cl||'—'); };
@@ -215,12 +250,13 @@
 
   const NAVP=[
     { items:[{id:'inicio',label:'Inicio'}] },
-    { group:'Mi negocio', items:[{id:'ventas',label:'Ventas'},{id:'inventario',label:'Inventario'}] },
+    { group:'Mi negocio', items:[{id:'ventas',label:'Ventas'},{id:'inventario',label:'Inventario'},{id:'compras',label:'Compras'},{id:'devoluciones',label:'Devoluciones'},{id:'clientes',label:'Clientes'}] },
+    { group:'Operación', items:[{id:'caja',label:'Caja'},{id:'empleados',label:'Empleados'},{id:'mermas',label:'Mermas y salidas'},{id:'reportes',label:'Reportes'},{id:'dispositivos',label:'Dispositivos'}] },
     { group:'Cuenta', items:[{id:'suscripcion',label:'Mi suscripción'},{id:'recibos',label:'Recibos'}] },
     { group:'Soporte', items:[{id:'soporte',label:'Soporte'},{id:'novedades',label:'Novedades'},{id:'ayuda',label:'Ayuda'}] }
   ];
-  const PNAVIC={ inicio:'home', ventas:'chart', inventario:'box', suscripcion:'card', recibos:'receipt', soporte:'support', novedades:'bell', ayuda:'help' };
-  const PGRUPIC={ 'Mi negocio':'chart', 'Cuenta':'card', 'Soporte':'support' };
+  const PNAVIC={ inicio:'home', ventas:'chart', inventario:'box', compras:'truck', devoluciones:'file', clientes:'users', caja:'card', empleados:'user', mermas:'activity', reportes:'dashboard', dispositivos:'server', suscripcion:'card', recibos:'receipt', soporte:'support', novedades:'bell', ayuda:'help' };
+  const PGRUPIC={ 'Mi negocio':'chart', 'Operación':'activity', 'Cuenta':'card', 'Soporte':'support' };
   const PLABEL={}; NAVP.forEach(g=>g.items.forEach(it=>{ PLABEL[it.id]=it.label; }));
   function renderTabs(){
     SpesUI.renderSidebar($('nav'), NAVP, {
@@ -253,6 +289,14 @@
       case 'inicio': return rInicio(c);
       case 'ventas': return rVentas(c);
       case 'inventario': return rInventario(c);
+      case 'compras': return rCompras(c);
+      case 'devoluciones': return rDevoluciones(c);
+      case 'clientes': return rClientes(c);
+      case 'caja': return rCaja(c);
+      case 'empleados': return rEmpleados(c);
+      case 'mermas': return rMermas(c);
+      case 'reportes': return rReportes(c);
+      case 'dispositivos': return rDispositivos(c);
       case 'suscripcion': return rSuscripcion(c);
       case 'recibos': return rRecibos(c);
       case 'soporte': return ST.ticketId?rTicket(c):rSoporte(c);
@@ -261,6 +305,10 @@
       default: return rInicio(c);
     }
   }
+
+  /** Estado vacío estándar del Bloque P: el dato existe cuando el POS (con el
+   *  Bloque C) sincroniza. Espejo de lectura: aquí no se captura nada. */
+  function emptySync(que){ return '<div class="state">Aún no hay '+que+' sincronizados. Actualiza tu POS a la versión más reciente y aparecerán aquí solos.</div>'; }
 
   function subEstadoTag(){
     const s=ST.sub; if(!s) return '<span class="tag t-neutral">sin suscripción</span>';
@@ -293,20 +341,41 @@
         <div class="card"><div class="n">${ST.FLEET.length}</div><div class="l">Dispositivos</div></div>
       </div>
       <div class="grid2" style="margin-top:20px">
-        <div class="card"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Accesos rápidos</h3></div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            <button class="btn ghost sm" data-goto="ventas">Mis ventas</button>
-            <button class="btn ghost sm" data-goto="inventario">Inventario</button>
-            <button class="btn ghost sm" data-goto="suscripcion">Suscripción</button>
-            <button class="btn ghost sm" data-goto="recibos">Recibos</button>
-            <button class="btn ghost sm" data-goto="soporte">Soporte</button>
-          </div>
-        </div>
+        <div class="card"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Alertas</h3></div>${alertasHtml()}</div>
         <div class="card"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Último anuncio</h3></div>
           ${ST.ANUNCIOS.length?('<b>'+esc(ST.ANUNCIOS[0].titulo)+'</b><p class="muted" style="margin-top:6px">'+esc(ST.ANUNCIOS[0].cuerpo||'')+'</p>'):'<p class="muted">Sin anuncios por ahora.</p>'}
         </div>
+      </div>
+      <div class="card" style="margin-top:12px"><div class="sechead"><h3 style="font-size:14px;font-weight:800">Accesos rápidos</h3></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button class="btn ghost sm" data-goto="ventas">Ventas</button>
+          <button class="btn ghost sm" data-goto="inventario">Inventario</button>
+          <button class="btn ghost sm" data-goto="compras">Compras</button>
+          <button class="btn ghost sm" data-goto="caja">Caja</button>
+          <button class="btn ghost sm" data-goto="clientes">Clientes</button>
+          <button class="btn ghost sm" data-goto="reportes">Reportes</button>
+          <button class="btn ghost sm" data-goto="soporte">Soporte</button>
+        </div>
       </div>`;
     c.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
+  }
+
+  /** Alertas del negocio (Bloque P): lo que merece atención hoy. */
+  function alertasHtml(){
+    const al=[];
+    const low=ST.PRODUCTS.filter(p=>p.is_active!==0).filter(p=>{ const s=ST.STOCK[p.id]; return s!=null&&p.stock_min!=null&&s<=Number(p.stock_min); }).length;
+    if(low>0) al.push(['t-warn', low+' producto'+(low===1?'':'s')+' bajo mínimo','inventario']);
+    const s=ST.sub, dl=s?daysLeft(s.vence):null;
+    if(dl!=null&&dl<0) al.push(['t-bad','Tu suscripción está vencida','suscripcion']);
+    else if(dl!=null&&dl<=7) al.push(['t-warn','Tu suscripción vence en '+dl+' día'+(dl===1?'':'s'),'suscripcion']);
+    const frios=ST.FLEET.filter(f=>{ const d=coldDays(f); return d!=null&&d>=7; }).length;
+    if(frios>0) al.push(['t-bad', frios+' dispositivo'+(frios===1?'':'s')+' sin conexión ≥ 7 días','dispositivos']);
+    const viejas=ST.CASHS.filter(x=>x.status==='open'&&x.opened_at&&(Date.now()-new Date(x.opened_at).getTime())>86400000).length;
+    if(viejas>0) al.push(['t-warn', viejas+' caja'+(viejas===1?'':'s')+' abierta'+(viejas===1?'':'s')+' hace más de 24 h','caja']);
+    const pend=ST.PURCHASES.filter(p=>p.status==='draft'||p.status==='sent').length;
+    if(pend>0) al.push(['t-neutral', pend+' compra'+(pend===1?'':'s')+' pendiente'+(pend===1?'':'s')+' de recibir','compras']);
+    if(!al.length) return '<p class="muted">Sin alertas. Todo en orden.</p>';
+    return al.map(a=>'<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span class="tag '+a[0]+'">!</span><span style="font-size:13.5px;flex:1">'+esc(a[1])+'</span><button class="btn ghost sm" data-goto="'+a[2]+'">Ver</button></div>').join('');
   }
 
   // ===== SUSCRIPCIÓN =====
@@ -423,10 +492,217 @@
         <div class="card"><div class="n" style="color:#fbbf24">${low}</div><div class="l">Bajo mínimo</div></div>
         <div class="card"><div class="n">${ST.FLEET.length}</div><div class="l">Dispositivos</div></div>
       </div>
-      <div class="card" style="margin-top:16px;padding:6px 12px"><table><thead><tr><th>Producto</th><th>SKU</th><th>Stock</th><th>Mín.</th><th>Precio</th></tr></thead><tbody>`;
+      <div class="card" style="margin-top:16px;padding:6px 12px"><table><thead><tr><th>Producto</th><th>SKU</th><th>Stock</th><th>Mín.</th><th>Precio</th><th>Mayoreo</th></tr></thead><tbody>`;
     for(const p of prods){
       const s=ST.STOCK[p.id], bajo=s!=null && p.stock_min!=null && s<=Number(p.stock_min), pr=price(p);
-      h+=`<tr><td>${esc(p.name||'—')}</td><td class="mono muted">${esc(p.sku||'—')}</td><td>${s!=null?('<strong'+(bajo?' style="color:#f87171"':'')+'>'+s+'</strong>'):'—'}</td><td class="muted">${p.stock_min!=null?esc(p.stock_min):'—'}</td><td>${pr!=null?money(pr):'—'}</td></tr>`;
+      const may=Number(p.wholesale_discount_pct||0);
+      h+=`<tr><td>${esc(p.name||'—')}</td><td class="mono muted">${esc(p.sku||'—')}</td><td>${s!=null?('<strong'+(bajo?' style="color:#f87171"':'')+'>'+s+'</strong>'):'—'}</td><td class="muted">${p.stock_min!=null?esc(p.stock_min):'—'}</td><td>${pr!=null?money(pr):'—'}</td><td class="muted">${may>0?('−'+may+'%'):'—'}</td></tr>`;
+    }
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div>');
+  }
+
+  // ============================================================
+  // BLOQUE P (Fase 2, §8.4): espejo de lectura de los dominios que
+  // sincroniza el Bloque C (ADR-092). Solo lectura: el POS es la autoridad.
+  // ============================================================
+
+  // ===== COMPRAS =====
+  const PO_TAG={ draft:['borrador','t-neutral'], sent:['enviada','t-warn'], received:['recibida','t-ok'], cancelled:['cancelada','t-bad'] };
+  function poTag(s){ const t=PO_TAG[s]||[s||'—','t-neutral']; return '<span class="tag '+t[1]+'">'+esc(t[0])+'</span>'; }
+  function sameMonth(iso){ const d=new Date(iso), n=new Date(); return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear(); }
+  function rCompras(c){
+    const mes=ST.PURCHASES.filter(p=>sameMonth(p.created_at));
+    const recMes=mes.filter(p=>p.status==='received');
+    const pend=ST.PURCHASES.filter(p=>p.status==='draft'||p.status==='sent');
+    c.innerHTML=`<h2>Compras</h2><p class="sub">Órdenes de compra registradas en tu POS, en tiempo real.</p>
+      <div class="cards">
+        <div class="card"><div class="n">${mes.length}</div><div class="l">Órdenes este mes</div></div>
+        <div class="card"><div class="n">${money(recMes.reduce((a,p)=>a+Number(p.total||0),0))}</div><div class="l">Recibido este mes · ${recMes.length} órdenes</div></div>
+        <div class="card"><div class="n"${pend.length?' style="color:#fbbf24"':''}>${pend.length}</div><div class="l">Pendientes de recibir</div></div>
+      </div>`;
+    if(!ST.PURCHASES.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('compras')); return; }
+    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Folio</th><th>Fecha</th><th>Proveedor</th><th>Artículos</th><th>Estado</th><th>Total</th></tr></thead><tbody>';
+    for(const p of ST.PURCHASES.slice(0,100)) h+=`<tr data-po="${esc(p.id)}" style="cursor:pointer"><td class="mono">${esc(p.folio||'—')}</td><td>${fdt(p.created_at)}</td><td>${esc(ST.SUPPLIERS[p.supplier_id]||'—')}</td><td>${(p.items||[]).length}</td><td>${poTag(p.status)}</td><td><strong>${money(p.total)}</strong></td></tr>`;
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div><p class="muted" style="margin-top:8px">Toca una orden para ver su detalle.</p>');
+    c.querySelectorAll('[data-po]').forEach(el=>el.addEventListener('click',()=>poDetail(el.dataset.po)));
+  }
+  function poDetail(id){
+    const p=ST.PURCHASES.find(x=>x.id===id); if(!p) return;
+    const rows=(p.items||[]).map(it=>`<tr><td>${esc(it.name||'—')}</td><td class="mono muted">${esc(it.sku||'—')}</td><td>${esc(it.quantity)}</td><td>${money(it.unit_cost)}</td><td><strong>${money(it.line_total)}</strong></td></tr>`).join('');
+    modalShell(`<h3>Compra ${esc(p.folio||'')}</h3>
+      <p class="muted" style="margin-top:4px">${fdt(p.created_at)} · ${esc(ST.SUPPLIERS[p.supplier_id]||'Sin proveedor')} · ${poTag(p.status)}${p.received_at?' · recibida '+fdt(p.received_at):''}</p>
+      ${p.notes?'<p class="muted" style="margin-top:6px">'+esc(p.notes)+'</p>':''}
+      <div style="margin-top:12px;overflow-x:auto"><table><thead><tr><th>Producto</th><th>SKU</th><th>Cant.</th><th>Costo</th><th>Importe</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Sin renglones.</td></tr>'}</tbody></table></div>
+      <p style="margin-top:12px;text-align:right;font-weight:800">Total: ${money(p.total)}</p>
+      <div class="mrow"><button class="btn" id="po_ok">Cerrar</button></div>`);
+    $('po_ok').onclick=closeModal;
+  }
+
+  // ===== DEVOLUCIONES =====
+  function rDevoluciones(c){
+    const mes=ST.RETURNS.filter(r=>sameMonth(r.created_at));
+    c.innerHTML=`<h2>Devoluciones</h2><p class="sub">Devoluciones y cambios registrados en tu POS.</p>
+      <div class="cards">
+        <div class="card"><div class="n">${mes.length}</div><div class="l">Este mes</div></div>
+        <div class="card"><div class="n">${money(mes.reduce((a,r)=>a+Number(r.total||0),0))}</div><div class="l">Reembolsado este mes</div></div>
+        <div class="card"><div class="n">${ST.RETURNS.length}</div><div class="l">Histórico sincronizado</div></div>
+      </div>`;
+    if(!ST.RETURNS.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('devoluciones')); return; }
+    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Folio</th><th>Ticket</th><th>Fecha</th><th>Motivo</th><th>Total</th></tr></thead><tbody>';
+    for(const r of ST.RETURNS.slice(0,100)) h+=`<tr data-ret="${esc(r.id)}" style="cursor:pointer"><td class="mono">${esc(r.folio||'—')}</td><td class="mono muted">${esc(r.sale_folio||'—')}</td><td>${fdt(r.created_at)}</td><td>${esc(r.reason||'—')}</td><td><strong>${money(r.total)}</strong></td></tr>`;
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div><p class="muted" style="margin-top:8px">Toca una devolución para ver los artículos.</p>');
+    c.querySelectorAll('[data-ret]').forEach(el=>el.addEventListener('click',()=>retDetail(el.dataset.ret)));
+  }
+  function retDetail(id){
+    const r=ST.RETURNS.find(x=>x.id===id); if(!r) return;
+    const rows=(r.items||[]).map(it=>`<tr><td>${esc(it.name||'—')}</td><td>${esc(it.quantity)}</td><td>${money(it.unit_price)}</td><td>${it.restock?'<span class="tag t-ok">repuesto</span>':'<span class="tag t-warn">merma</span>'}</td><td><strong>${money(it.line_total)}</strong></td></tr>`).join('');
+    modalShell(`<h3>Devolución ${esc(r.folio||'')}</h3>
+      <p class="muted" style="margin-top:4px">${fdt(r.created_at)} · ticket ${esc(r.sale_folio||'—')} · reembolso ${esc(r.refund_method||'efectivo')}</p>
+      <p class="muted" style="margin-top:6px">Motivo: ${esc(r.reason||'—')}</p>
+      <div style="margin-top:12px;overflow-x:auto"><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Precio</th><th>Inventario</th><th>Importe</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Sin renglones.</td></tr>'}</tbody></table></div>
+      <p style="margin-top:12px;text-align:right;font-weight:800">Total: ${money(r.total)}</p>
+      <div class="mrow"><button class="btn" id="ret_ok">Cerrar</button></div>`);
+    $('ret_ok').onclick=closeModal;
+  }
+
+  // ===== CLIENTES =====
+  function rClientes(c){
+    const act=ST.CUSTOMERS.filter(x=>x.is_active!==0);
+    const conPts=act.filter(x=>(ST.POINTS[x.id]||0)>0);
+    const totPts=act.reduce((a,x)=>a+(ST.POINTS[x.id]||0),0);
+    c.innerHTML=`<h2>Clientes</h2><p class="sub">Tu directorio y los puntos de lealtad de cada cliente.</p>
+      <div class="cards">
+        <div class="card"><div class="n">${act.length}</div><div class="l">Clientes activos</div></div>
+        <div class="card"><div class="n">${conPts.length}</div><div class="l">Con puntos</div></div>
+        <div class="card"><div class="n">${totPts.toLocaleString('es-MX')}</div><div class="l">Puntos en circulación</div></div>
+      </div>`;
+    if(!ST.CUSTOMERS.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('clientes')); return; }
+    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Puntos</th><th>Estado</th></tr></thead><tbody>';
+    for(const x of ST.CUSTOMERS.slice(0,200)) h+=`<tr><td>${esc(x.name||'—')}</td><td class="mono muted">${esc(x.phone||'—')}</td><td><strong>${(ST.POINTS[x.id]||0).toLocaleString('es-MX')}</strong></td><td>${x.is_active===0?'<span class="tag t-neutral">inactivo</span>':'<span class="tag t-ok">activo</span>'}</td></tr>`;
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div><p class="muted" style="margin-top:8px">Los puntos se calculan en el servidor sumando cada movimiento de lealtad de todas tus cajas.</p>');
+  }
+
+  // ===== CAJA =====
+  function rCaja(c){
+    const abiertas=ST.CASHS.filter(s=>s.status==='open');
+    const egMes=ST.EGRESOS.filter(e=>sameMonth(e.created_at));
+    c.innerHTML=`<h2>Caja</h2><p class="sub">Cortes de caja, movimientos y salidas de dinero de tu negocio.</p>
+      <div class="cards">
+        <div class="card"><div class="n"${abiertas.length?' style="color:#fbbf24"':''}>${abiertas.length}</div><div class="l">Cajas abiertas</div></div>
+        <div class="card"><div class="n">${money(egMes.reduce((a,e)=>a+Number(e.amount||0),0))}</div><div class="l">Egresos este mes · ${egMes.length}</div></div>
+        <div class="card"><div class="n">${money(ST.EXPENSES.reduce((a,e)=>a+Number(e.amount||0),0))}</div><div class="l">Gastos fijos registrados</div></div>
+      </div>`;
+    if(!ST.CASHS.length && !ST.EGRESOS.length && !ST.EXPENSES.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('datos de caja')); return; }
+    let h='<h3 style="font-size:14px;font-weight:800;margin:18px 0 10px">Sesiones de caja</h3>';
+    if(!ST.CASHS.length) h+='<div class="state">Sin sesiones sincronizadas.</div>';
+    else{
+      h+='<div class="card" style="padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Apertura</th><th>Estado</th><th>Fondo</th><th>Contado</th><th>Esperado</th><th>Diferencia</th></tr></thead><tbody>';
+      for(const s of ST.CASHS.slice(0,30)){
+        const dif=s.difference==null?null:Number(s.difference);
+        h+=`<tr><td>${fdt(s.opened_at)}</td><td>${s.status==='open'?'<span class="tag t-warn">abierta</span>':'<span class="tag t-neutral">cerrada</span>'}</td><td>${money(s.opening_float)}</td><td>${s.counted_cash!=null?money(s.counted_cash):'—'}</td><td>${s.expected_cash!=null?money(s.expected_cash):'—'}</td><td>${dif==null?'—':('<strong style="color:'+(dif<0?'#f87171':(dif>0?'#fbbf24':'#34d399'))+'">'+money(dif)+'</strong>')}</td></tr>`;
+      }
+      h+='</tbody></table></div>';
+    }
+    h+='<div class="grid2" style="margin-top:18px"><div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Movimientos recientes</h3>';
+    h+= ST.CASHMOVS.length?('<div class="card" style="padding:6px 12px"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Motivo</th><th>Monto</th></tr></thead><tbody>'+ST.CASHMOVS.slice(0,20).map(m=>`<tr><td>${fdt(m.created_at)}</td><td>${m.type==='in'?'<span class="tag t-ok">entrada</span>':'<span class="tag t-bad">salida</span>'}</td><td class="muted">${esc(m.reason||'—')}</td><td><strong>${money(m.amount)}</strong></td></tr>`).join('')+'</tbody></table></div>'):'<div class="state">Sin movimientos.</div>';
+    h+='</div><div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Egresos recientes</h3>';
+    h+= ST.EGRESOS.length?('<div class="card" style="padding:6px 12px"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Método</th><th>Monto</th></tr></thead><tbody>'+ST.EGRESOS.slice(0,20).map(e=>`<tr><td>${fdt(e.created_at)}</td><td>${esc(e.concept||'—')}</td><td class="muted">${esc(e.method||'—')}</td><td><strong>${money(e.amount)}</strong></td></tr>`).join('')+'</tbody></table></div>'):'<div class="state">Sin egresos.</div>';
+    h+='</div></div>';
+    if(ST.EXPENSES.length){
+      const KINDS={fixed:'fijo',variable:'variable',payroll:'nómina'};
+      h+='<h3 style="font-size:14px;font-weight:800;margin:18px 0 10px">Gastos del negocio (punto de equilibrio)</h3><div class="card" style="padding:6px 12px"><table><thead><tr><th>Concepto</th><th>Tipo</th><th>Periodo</th><th>Monto</th></tr></thead><tbody>';
+      for(const e of ST.EXPENSES) h+=`<tr><td>${esc(e.concept||'—')}</td><td class="muted">${esc(KINDS[e.kind]||e.kind||'—')}</td><td class="muted">${esc(e.period==='weekly'?'semanal':(e.period==='biweekly'?'quincenal':'mensual'))}</td><td><strong>${money(e.amount)}</strong></td></tr>`;
+      h+='</tbody></table></div>';
+    }
+    c.insertAdjacentHTML('beforeend',h);
+  }
+
+  // ===== EMPLEADOS =====
+  function rEmpleados(c){
+    const act=ST.EMPLOYEES.filter(x=>x.is_active!==0);
+    c.innerHTML=`<h2>Empleados</h2><p class="sub">Tu equipo, tal como está dado de alta en el POS.</p>
+      <div class="cards">
+        <div class="card"><div class="n">${act.length}</div><div class="l">Activos</div></div>
+        <div class="card"><div class="n">${ST.EMPLOYEES.length}</div><div class="l">Total</div></div>
+        <div class="card"><div class="n">${ST.FLEET.length}</div><div class="l">Cajas conectadas</div></div>
+      </div>`;
+    if(!ST.EMPLOYEES.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('empleados')); return; }
+    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>';
+    for(const e of ST.EMPLOYEES) h+=`<tr><td>${esc(e.full_name||'—')}</td><td class="mono muted">${esc(e.username||'—')}</td><td>${esc((e.role||'—').toLowerCase())}</td><td class="mono muted">${esc(e.phone||'—')}</td><td>${e.is_active===0?'<span class="tag t-neutral">inactivo</span>':'<span class="tag t-ok">activo</span>'}</td></tr>`;
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div><p class="muted" style="margin-top:8px">Por seguridad, los PIN de acceso nunca salen de cada caja.</p>');
+  }
+
+  // ===== MERMAS Y SALIDAS =====
+  function rMermas(c){
+    const pname=id=>{ const p=ST.PRODUCTS.find(x=>x.id===id); return p?(p.name||'—'):'—'; };
+    const mes=ST.MERMAS.filter(m=>sameMonth(m.created_at));
+    c.innerHTML=`<h2>Mermas y salidas</h2><p class="sub">Ajustes negativos de inventario (producto dañado, caducado, autoconsumo…).</p>
+      <div class="cards">
+        <div class="card"><div class="n">${mes.length}</div><div class="l">Salidas este mes</div></div>
+        <div class="card"><div class="n">${Math.abs(mes.reduce((a,m)=>a+Number(m.qty_change||0),0)).toLocaleString('es-MX')}</div><div class="l">Unidades este mes</div></div>
+        <div class="card"><div class="n">${ST.MERMAS.length}</div><div class="l">Histórico sincronizado</div></div>
+      </div>`;
+    if(!ST.MERMAS.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('mermas ni salidas')); return; }
+    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Motivo</th></tr></thead><tbody>';
+    for(const m of ST.MERMAS.slice(0,100)) h+=`<tr><td>${fdt(m.created_at)}</td><td>${esc(pname(m.product_id))}</td><td><strong style="color:#f87171">${esc(m.qty_change)}</strong></td><td class="muted">${esc(m.reason||'—')}</td></tr>`;
+    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div>');
+  }
+
+  // ===== REPORTES =====
+  function rReportes(c){
+    const comp=ST.SALES.filter(v=>v.status!=='cancelled');
+    // Ventas por día (últimos 14 días).
+    const days=[]; const now=new Date();
+    for(let i=13;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); days.push({ key:d.toDateString(), label:d.toLocaleDateString('es-MX',{weekday:'short',day:'2-digit'}), total:0, n:0 }); }
+    const idx={}; days.forEach(d=>{ idx[d.key]=d; });
+    comp.forEach(v=>{ const k=new Date(v.created_at).toDateString(); if(idx[k]){ idx[k].total+=Number(v.total||0); idx[k].n++; } });
+    const maxDay=Math.max(1,...days.map(d=>d.total));
+    // Resumen del mes.
+    const mesV=comp.filter(v=>sameMonth(v.created_at));
+    const mesC=ST.PURCHASES.filter(p=>p.status==='received'&&p.received_at&&sameMonth(p.received_at));
+    const mesE=ST.EGRESOS.filter(e=>sameMonth(e.created_at));
+    const mesR=ST.RETURNS.filter(r=>sameMonth(r.created_at));
+    const sum=(a,k)=>a.reduce((x,y)=>x+Number(y[k]||0),0);
+    // Top productos del mes (de los renglones de venta sincronizados).
+    const top={};
+    ST.MONTH_SALES.forEach(s=>{ const d=s.data||{}; const items=(d.items||[]); items.forEach(it=>{ if(it.is_deleted) return; const k=it.name||'—'; (top[k]=top[k]||{name:k,qty:0,total:0}); top[k].qty+=Number(it.quantity||0); top[k].total+=Number(it.line_total||0); }); });
+    const top10=Object.values(top).sort((a,b)=>b.total-a.total).slice(0,10);
+    c.innerHTML=`<h2>Reportes</h2><p class="sub">La foto de tu negocio con datos de todas tus cajas.</p>
+      <div class="cards">
+        <div class="card"><div class="n">${money(sum(mesV,'total'))}</div><div class="l">Ventas del mes · ${mesV.length} tickets</div></div>
+        <div class="card"><div class="n">${money(sum(mesC,'total'))}</div><div class="l">Compras recibidas · ${mesC.length}</div></div>
+        <div class="card"><div class="n">${money(sum(mesE,'amount')+sum(mesR,'total'))}</div><div class="l">Egresos + devoluciones del mes</div></div>
+      </div>
+      <div class="grid2" style="margin-top:18px">
+        <div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Ventas por día (14 días)</h3>
+          <div class="card" style="padding:12px">${days.map(d=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:3px 0">
+              <span class="mono muted" style="width:64px;font-size:11px">${esc(d.label)}</span>
+              <span style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:100%;width:${Math.round(d.total/maxDay*100)}%;background:#fff;border-radius:4px"></span></span>
+              <span style="width:90px;text-align:right;font-size:12px;font-weight:700">${money(d.total)}</span>
+            </div>`).join('')}</div>
+          <p class="muted" style="margin-top:8px">Con las últimas ${ST.SALES.length} ventas sincronizadas.</p>
+        </div>
+        <div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Top productos del mes</h3>
+          ${top10.length?('<div class="card" style="padding:6px 12px"><table><thead><tr><th>Producto</th><th>Cant.</th><th>Vendido</th></tr></thead><tbody>'+top10.map(t=>`<tr><td>${esc(t.name)}</td><td>${(Math.round(t.qty*100)/100).toLocaleString('es-MX')}</td><td><strong>${money(t.total)}</strong></td></tr>`).join('')+'</tbody></table></div>'):'<div class="state">Se llenará con las ventas de este mes.</div>'}
+        </div>
+      </div>`;
+  }
+
+  // ===== DISPOSITIVOS =====
+  function coldDays(f){ if(!f.last_seen_at) return null; return Math.floor((Date.now()-new Date(f.last_seen_at).getTime())/86400000); }
+  function rDispositivos(c){
+    const frios=ST.FLEET.filter(f=>{ const d=coldDays(f); return d!=null&&d>=7; });
+    c.innerHTML=`<h2>Dispositivos</h2><p class="sub">Las cajas de tu negocio conectadas a la nube SPES.</p>
+      <div class="cards">
+        <div class="card"><div class="n">${ST.FLEET.length}</div><div class="l">Dispositivos</div></div>
+        <div class="card"><div class="n"${frios.length?' style="color:#f87171"':''}>${frios.length}</div><div class="l">Sin conexión ≥ 7 días</div></div>
+        <div class="card"><div class="n">${esc(ST.FLEET[0]&&ST.FLEET[0].app_version||'—')}</div><div class="l">Versión más reciente vista</div></div>
+      </div>`;
+    if(!ST.FLEET.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div><div class="state">Aún no hay dispositivos reportados. Abre tu POS con internet y aparecerá aquí.</div>'); return; }
+    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Dispositivo</th><th>Versión</th><th>Plataforma</th><th>Primera conexión</th><th>Última conexión</th><th>Estado</th></tr></thead><tbody>';
+    for(const f of ST.FLEET){ const d=coldDays(f);
+      h+=`<tr><td class="mono">${esc(String(f.device_id||'').slice(0,8))}</td><td class="mono">${esc(f.app_version||'—')}</td><td class="muted">${esc(f.platform||'—')}</td><td class="muted">${f.first_seen_at?fdate(f.first_seen_at):'—'}</td><td>${f.last_seen_at?fdt(f.last_seen_at):'—'}</td><td>${d==null?'<span class="tag t-neutral">—</span>':(d>=7?'<span class="tag t-bad">'+d+' días sin conexión</span>':'<span class="tag t-ok">en línea reciente</span>')}</td></tr>`;
     }
     c.insertAdjacentHTML('beforeend',h+'</tbody></table></div>');
   }
