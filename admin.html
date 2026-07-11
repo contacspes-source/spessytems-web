@@ -118,6 +118,12 @@
   .sk{ background:linear-gradient(90deg,#f0f0f1 25%,#e4e4e7 37%,#f0f0f1 63%); background-size:400% 100%; animation:skl 1.2s ease-in-out infinite; border-radius:8px; }
   @keyframes skl{ 0%{background-position:100% 50%} 100%{background-position:0 50%} }
   .sk-kpi{ height:70px; } .sk-row{ height:38px; margin-bottom:8px; }
+  .barrow{ display:flex; align-items:center; gap:10px; margin:7px 0; font-size:13px; }
+  .barrow .blbl{ width:130px; min-width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .barrow .bval{ width:90px; min-width:90px; text-align:right; font-weight:700; }
+  .bar{ flex:1; height:8px; background:#f0f0f1; border-radius:4px; overflow:hidden; }
+  .bar>i{ display:block; height:100%; background:var(--ink); border-radius:4px; }
+  .swatch{ display:inline-block; width:16px; height:16px; border-radius:4px; border:1px solid var(--bd); vertical-align:-3px; }
 </style>
 </head>
 <body>
@@ -290,7 +296,7 @@
   // ===== STATE =====
   const ST = { view:'dashboard', clienteId:null, param:null, isPrincipal:false, email:'',
     NEGOCIOS:[], LEADS:[], PAGOS:[], ADMINS:[], VERSIONES:[], NOTAS:[], PLANES:[],
-    TICKETS:[], TMSGS:[], ANUNCIOS:[], KB:[], CONFIG:null, FLEET:[] };
+    TICKETS:[], TMSGS:[], ANUNCIOS:[], KB:[], CONFIG:null, FLEET:[], PLANTILLAS:[] };
 
   const NAV = [
     { items:[ {id:'dashboard',label:'Dashboard'} ] },
@@ -300,9 +306,9 @@
     { group:'Productos', items:[ {id:'actualizaciones',label:'Actualizaciones'},{id:'licencias',label:'Licencias'},{id:'pf',label:'POS Frutería',soon:1},{id:'pr',label:'POS Restaurante',soon:1},{id:'pg',label:'POS Gimnasio',soon:1},{id:'hardware',label:'Hardware',soon:1} ] },
     { group:'Usuarios', items:[ {id:'roles',label:'Roles'},{id:'permisos',label:'Permisos'} ] },
     { group:'Marketing', items:[ {id:'formularios',label:'Formularios',soon:1},{id:'newsletter',label:'Newsletter',soon:1} ] },
-    { group:'Analíticas', items:[ {id:'an_ventas',label:'Ventas',soon:1},{id:'an_ingresos',label:'Ingresos',soon:1},{id:'an_churn',label:'Churn',soon:1},{id:'an_conv',label:'Conversión',soon:1},{id:'an_uso',label:'Uso del sistema',soon:1} ] },
+    { group:'Analíticas', items:[ {id:'an_ventas',label:'Ventas'},{id:'an_ingresos',label:'Ingresos'},{id:'an_churn',label:'Churn',soon:1},{id:'an_conv',label:'Conversión'},{id:'an_uso',label:'Uso del sistema'} ] },
     { group:'Infraestructura', items:[ {id:'flota',label:'Flota'},{id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
-    { group:'Configuración', items:[ {id:'cfg_empresa',label:'Empresa'},{id:'cfg_branding',label:'Branding',soon:1},{id:'cfg_correos',label:'Correos',soon:1},{id:'cfg_api',label:'API',soon:1},{id:'cfg_integraciones',label:'Integraciones',soon:1} ] },
+    { group:'Configuración', items:[ {id:'cfg_empresa',label:'Empresa'},{id:'cfg_branding',label:'Branding'},{id:'cfg_correos',label:'Correos'},{id:'cfg_api',label:'API',soon:1},{id:'cfg_integraciones',label:'Integraciones',soon:1} ] },
     { items:[ {id:'cuenta',label:'Cuenta'} ] }
   ];
   const NAVIC={ dashboard:'dashboard', clientes:'users', mensajes:'bell', empresas:'building', contactos:'user', planes:'tag', pagos:'card', renovaciones:'receipt', facturacion:'receipt', membresias:'tag', tickets:'message', kb:'help', anuncios:'bell', conversaciones:'chat', actualizaciones:'box', licencias:'tag', pf:'box', pr:'box', pg:'box', hardware:'box', roles:'users', permisos:'gear', formularios:'help', newsletter:'bell', an_ventas:'chart', an_ingresos:'chart', an_churn:'chart', an_conv:'chart', an_uso:'chart', flota:'truck', inf_estado:'activity', inf_serv:'server', inf_db:'database', inf_backups:'cloud', inf_logs:'file', cfg_empresa:'gear', cfg_branding:'gear', cfg_correos:'gear', cfg_api:'gear', cfg_integraciones:'gear', cuenta:'user' };
@@ -350,7 +356,7 @@
 
   async function loadAll(){
     try{
-      const [b,s,p,l,ad,ve,pl,tk,an,kb,nt,cfg,fl] = await Promise.all([
+      const [b,s,p,l,ad,ve,pl,tk,an,kb,nt,cfg,fl,tpl] = await Promise.all([
         sbc.from('businesses').select('*').order('created_at',{ascending:true}),
         sbc.from('subscriptions').select('*'),
         sbc.from('pagos').select('*').order('fecha',{ascending:false}).limit(500),
@@ -363,13 +369,14 @@
         sbc.from('kb_articulos').select('*').order('created_at',{ascending:false}),
         sbc.from('notas_cliente').select('*').order('created_at',{ascending:false}),
         sbc.from('config').select('*').maybeSingle(),
-        sbc.from('fleet').select('*').order('last_seen_at',{ascending:false})
+        sbc.from('fleet').select('*').order('last_seen_at',{ascending:false}),
+        sbc.from('plantillas_correo').select('*').order('nombre',{ascending:true})
       ]);
       if(b.error) throw b.error;
       const subByB={}; (s.data||[]).forEach(x=>{ subByB[x.business_id]=x; });
       ST.NEGOCIOS=(b.data||[]).map(x=>({ ...x, subscriptions: subByB[x.id]?[subByB[x.id]]:[] }));
       ST.PAGOS=(p.data||[]).map(x=>({ ...x, created_at: x.created_at || x.fecha })); ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[]; ST.PLANES=pl.data||[];
-      ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.KB=kb.data||[]; ST.NOTAS=nt.data||[]; ST.CONFIG=cfg.data||null; ST.FLEET=fl.data||[];
+      ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.KB=kb.data||[]; ST.NOTAS=nt.data||[]; ST.CONFIG=cfg.data||null; ST.FLEET=fl.data||[]; ST.PLANTILLAS=tpl.data||[];
     }catch(e){ $('content').innerHTML='<div class="card state" style="color:#dc2626">Error al cargar: '+esc(e.message||String(e))+'</div>'; }
   }
   const nameOf = bid => { const b=ST.NEGOCIOS.find(x=>x.id===bid); return b?(b.business_name||'(sin nombre)'):'—'; };
@@ -446,6 +453,12 @@
       case 'roles': return renderRoles(c);
       case 'permisos': return renderPermisos(c);
       case 'cfg_empresa': return renderConfigEmpresa(c);
+      case 'cfg_branding': return renderCfgBranding(c);
+      case 'cfg_correos': return renderCfgCorreos(c);
+      case 'an_ventas': return renderAnVentas(c);
+      case 'an_ingresos': return renderAnIngresos(c);
+      case 'an_conv': return renderAnConv(c);
+      case 'an_uso': return renderAnUso(c);
       case 'cuenta': return renderCuenta(c);
       default: return renderSoon(c);
     }
@@ -563,6 +576,8 @@
     const pagos=ST.PAGOS.filter(p=>p.business_id===b.id);
     const notas=ST.NOTAS.filter(n=>n.business_id===b.id);
     const ticketsCliente=ST.TICKETS.filter(t=>t.business_id===b.id);
+    const mail=(b.owner_email||'').trim().toLowerCase();
+    const msgsCliente=ST.LEADS.filter(l=> l.convertido_business_id===b.id || (mail && (l.correo||'').trim().toLowerCase()===mail));
     const A=(id,txt,extra)=>`<button class="btn sm ${extra||'ghost'}" data-act="${id}">${txt}</button>`;
     c.innerHTML = `
       <span class="back" id="back">‹ Volver a clientes</span>
@@ -603,7 +618,12 @@
           <div style="display:flex;gap:8px;margin-top:10px"><input id="notaTxt" placeholder="Agregar nota…" style="margin:0"><button class="btn sm" id="notaAdd">Agregar</button></div>
         </div>
         <div class="panel" style="grid-column:1/-1"><h3>Tickets de soporte (${ticketsCliente.length})</h3>${ticketsCliente.length?'<ul class="feed">'+ticketsCliente.map(t=>`<li><span class="dot d-mensaje"></span><span>${esc(t.asunto)} · ${esc((t.estado||'').replace('_',' '))}</span><time style="margin-left:auto">${fdate(t.created_at)}</time></li>`).join('')+'</ul>':'<p class="muted">Sin tickets.</p>'}</div>
-        <div class="panel soonbox" style="grid-column:1/-1"><div class="big">Dispositivos · Sucursales · Respaldos</div>Se conectan cuando el POS sincronice en la nube (Fase 5).</div>
+        <div class="panel" style="grid-column:1/-1"><h3>Mensajes del cliente (${msgsCliente.length})</h3>
+          ${msgsCliente.length?'<ul class="feed">'+msgsCliente.map(l=>`<li><span class="dot d-mensaje"></span><span>${esc(l.nombre||'—')}${l.mensaje?' — '+esc(String(l.mensaje).slice(0,80)):''}</span>${msgTag(l.estado)}<time style="margin-left:auto">${fdate(l.created_at)}</time></li>`).join('')+'</ul>':'<p class="muted">Sin mensajes enlazados a este cliente.</p>'}
+        </div>
+        <div class="panel" style="grid-column:1/-1"><h3>Negocio del cliente <span class="muted" style="font-weight:400;font-size:12px">espejo de lectura · datos de su POS</span></h3>
+          <div id="fichaNegocio"><p class="muted">Cargando datos del negocio…</p></div>
+        </div>
       </div>`;
     $('back').addEventListener('click',()=>go('clientes'));
     c.querySelectorAll('[data-act]').forEach(btn=>btn.addEventListener('click',()=>accionCliente(btn.dataset.act,b)));
@@ -614,6 +634,55 @@
       if(error){ notify('No se pudo guardar la nota: '+error.message,'error'); return; }
       await loadAll(); render();
     });
+    loadFichaNegocio(b);
+  }
+
+  // Espejo de lectura (Bloque B, Fase 3): el admin consulta los datos que el
+  // POS del cliente ya subió con sync v2 (ventas, catálogo, dispositivos).
+  // Solo lectura — las políticas RLS *_select_admin lo permiten; escribir, no.
+  async function loadFichaNegocio(b){
+    const el=document.getElementById('fichaNegocio'); if(!el) return;
+    try{
+      const ini=new Date(); ini.setDate(1); ini.setHours(0,0,0,0);
+      const [ven, prod, cli, last]=await Promise.all([
+        sb.from('sales').select('total,status,created_at').eq('account_id',b.id).gte('created_at',ini.toISOString()).limit(2000),
+        sb.from('records').select('record_id',{count:'exact',head:true}).eq('account_id',b.id).eq('table_name','products').eq('is_deleted',false),
+        sb.from('records').select('record_id',{count:'exact',head:true}).eq('account_id',b.id).eq('table_name','customers').eq('is_deleted',false),
+        sb.from('sync_log').select('received_at').eq('account_id',b.id).order('received_at',{ascending:false}).limit(1)
+      ]);
+      const err=ven.error||prod.error||cli.error||last.error;
+      if(err) throw err;
+      if(!document.getElementById('fichaNegocio')) return; // el usuario ya navegó a otra pantalla
+      const okVentas=(ven.data||[]).filter(s=>s.status!=='cancelled');
+      const sumaMes=okVentas.reduce((a,s)=>a+Number(s.total||0),0);
+      const nProd=prod.count||0, nCli=cli.count||0;
+      const devices=(ST.FLEET||[]).filter(f=>f.account_id===b.id);
+      const lastSync=(last.data&&last.data[0])?last.data[0].received_at:null;
+      if(!lastSync && !okVentas.length && !nProd && !devices.length){
+        el.innerHTML='<p class="muted">Este cliente aún no sincroniza su POS en la nube. Cuando instale la versión con sincronización, aquí verás sus ventas del mes, catálogo y dispositivos.</p>';
+        return;
+      }
+      const now=Date.now();
+      const daysAgo=ts=>Math.max(0, Math.floor((now-new Date(ts).getTime())/86400000));
+      const devTag=d=> d<2 ? '<span class="tag t-activa">al día</span>'
+        : d<7 ? '<span class="tag t-proceso">'+d+' días</span>'
+        : '<span class="tag t-suspendida">'+d+' días sin conectar</span>';
+      let h=`<div class="kpis">
+        <div class="kpi"><div class="n">${money(sumaMes)}</div><div class="l">Ventas del mes (${okVentas.length})</div></div>
+        <div class="kpi"><div class="n">${nProd}</div><div class="l">Productos en catálogo</div></div>
+        <div class="kpi"><div class="n">${nCli}</div><div class="l">Clientes de su tienda</div></div>
+        <div class="kpi"><div class="n">${devices.length}</div><div class="l">Dispositivos</div></div>
+      </div>`;
+      if(devices.length){
+        h+='<table style="margin-top:10px"><thead><tr><th>Dispositivo</th><th>Versión</th><th>Plataforma</th><th>Última conexión</th><th>Estado</th></tr></thead><tbody>';
+        for(const r of devices) h+=`<tr><td class="muted">${esc(String(r.device_id).slice(0,8))}</td><td>${esc(r.app_version||'—')}</td><td class="muted">${esc(r.platform||'—')}</td><td>${fdatetime(r.last_seen_at)}</td><td>${devTag(daysAgo(r.last_seen_at))}</td></tr>`;
+        h+='</tbody></table>';
+      }
+      h+='<p class="hint" style="margin-top:8px">Última sincronización recibida: '+(lastSync?fdatetime(lastSync):'—')+'. Espejo de solo lectura; los datos viven en el POS del cliente.</p>';
+      el.innerHTML=h;
+    }catch(e){
+      if(document.getElementById('fichaNegocio')) el.innerHTML='<p class="muted">No se pudieron leer los datos del negocio: '+esc((e&&e.message)||String(e))+'</p>';
+    }
   }
 
   // ===== ACCIONES DE CLIENTE (todas con modal) =====
@@ -743,7 +812,10 @@
     try{
     const b=ST.NEGOCIOS.find(x=>x.id===p.business_id)||{};
     const doc=new JS(); const emp=ST.CONFIG||{};
-    doc.setFontSize(20); doc.text(emp.empresa_nombre||'SPES Systems',20,22);
+    // Branding (Bloque C): color de acento del recibo, configurable en Configuración → Branding.
+    const hx=String(emp.color_acento||'').replace('#','');
+    const rgb=/^[0-9a-fA-F]{6}$/.test(hx)?[parseInt(hx.slice(0,2),16),parseInt(hx.slice(2,4),16),parseInt(hx.slice(4,6),16)]:[0,0,0];
+    doc.setFontSize(20); doc.setTextColor(rgb[0],rgb[1],rgb[2]); doc.text(emp.empresa_nombre||'SPES Systems',20,22); doc.setTextColor(0);
     doc.setFontSize(10); doc.setTextColor(120); doc.text('spessystems.com · Recibo de pago',20,28); doc.setTextColor(0);
     const folio='REC-'+String(p.id).slice(0,8).toUpperCase();
     let y=46; doc.setFontSize(11);
@@ -757,6 +829,7 @@
     doc.setFontSize(15); doc.text('Total: '+money(p.monto),20,y);
     y+=18; doc.setFontSize(9); doc.setTextColor(140);
     doc.text('Comprobante de pago, no es una factura fiscal (CFDI).',20,y);
+    if(emp.recibo_pie){ y+=6; doc.text(String(emp.recibo_pie).slice(0,120),20,y); }
     doc.save(folio+'.pdf');
     }catch(e){ notify('Error al generar el PDF: '+(e.message||e),'error'); }
   }
@@ -780,8 +853,23 @@
       <div class="mrow"><button class="btn" id="vc_ok">Cerrar</button></div>`);
     $('vc_ok').onclick=closeModal;
   }
+  // Sustituye las variables de una plantilla con los datos reales del negocio.
+  function fillPlantilla(t,b){
+    const s=subOf(b);
+    const map={ '{nombre}':b.owner_nombre||'', '{negocio}':b.business_name||'', '{plan}':s?(s.plan||''):'', '{vence}':(s&&s.vence)?fdate(s.vence):'', '{monto}':s?money(precioDe(s)):'' };
+    const rep=x=>Object.keys(map).reduce((a,k)=>a.split(k).join(map[k]), String(x||''));
+    return { asunto:rep(t.asunto), cuerpo:rep(t.cuerpo) };
+  }
   async function enviarMensajeCliente(b){
-    const v=await formModal({title:'Enviar mensaje al cliente', subtitle:esc(b.business_name||''), fields:[{key:'asunto',label:'Asunto',value:'Mensaje de SPES',required:true},{key:'cuerpo',label:'Mensaje',type:'textarea',value:'',required:true,rows:4}], submitLabel:'Enviar'});
+    let pre={ asunto:'Mensaje de SPES', cuerpo:'' };
+    if(ST.PLANTILLAS.length){
+      const opts=[{value:'',label:'— Sin plantilla (escribir desde cero) —'}].concat(ST.PLANTILLAS.map(t=>({value:t.id,label:t.nombre})));
+      const sel=await formModal({title:'Enviar mensaje al cliente', subtitle:'Puedes partir de una plantilla (Configuración → Correos).', fields:[{key:'tpl',label:'Plantilla',type:'select',value:'',options:opts}], submitLabel:'Continuar'});
+      if(!sel) return;
+      const t=ST.PLANTILLAS.find(x=>x.id===sel.tpl);
+      if(t) pre=fillPlantilla(t,b);
+    }
+    const v=await formModal({title:'Enviar mensaje al cliente', subtitle:esc(b.business_name||''), fields:[{key:'asunto',label:'Asunto',value:pre.asunto,required:true},{key:'cuerpo',label:'Mensaje',type:'textarea',value:pre.cuerpo,required:true,rows:6}], submitLabel:'Enviar'});
     if(!v) return;
     const ins=await sbc.from('tickets').insert({business_id:b.id, asunto:v.asunto, prioridad:'media', canal:'panel', asignado:ST.email}).select();
     if(ins.error) return notify('No se pudo enviar: '+ins.error.message,'error');
@@ -1207,13 +1295,14 @@
           <li><span class="dot d-pago"></span><span>Todo lo del operador</span></li>
           <li><span class="dot d-pago"></span><span>Agregar / quitar administradores</span></li>
           <li><span class="dot d-pago"></span><span>Eliminar clientes definitivamente</span></li>
-          <li><span class="dot d-pago"></span><span>Editar la configuración de la empresa</span></li>
+          <li><span class="dot d-pago"></span><span>Editar la configuración (empresa y branding)</span></li>
         </ul></div>
         <div class="panel"><h3>Operador</h3><ul class="feed">
           <li><span class="dot d-registro"></span><span>Ver clientes, mensajes, pagos, tickets</span></li>
           <li><span class="dot d-registro"></span><span>Registrar pagos, cambiar plan/precio, suspender/reactivar</span></li>
-          <li><span class="dot d-registro"></span><span>Gestionar mensajes, tickets, anuncios y actualizaciones</span></li>
-          <li><span class="dot d-mensaje"></span><span><b>No</b> puede eliminar clientes ni gestionar administradores/configuración</span></li>
+          <li><span class="dot d-registro"></span><span>Gestionar mensajes, tickets, anuncios, actualizaciones y plantillas de correo</span></li>
+          <li><span class="dot d-registro"></span><span>Ver las analíticas y la flota</span></li>
+          <li><span class="dot d-mensaje"></span><span><b>No</b> puede eliminar clientes ni gestionar administradores, empresa o branding</span></li>
         </ul></div>
       </div>
       <p class="hint" style="margin-top:12px">Permisos granulares por módulo llegarán más adelante.</p>`;
@@ -1244,6 +1333,187 @@
       if(error){ notify('No se pudo guardar: '+error.message,'error'); return; }
       await loadAll(); render();
     });
+  }
+
+  // ===== CONFIGURACIÓN · BRANDING (Bloque C) =====
+  function renderCfgBranding(c){
+    const cf=ST.CONFIG||{};
+    c.innerHTML=`<div class="sechead"><h2>Configuración · Branding</h2><span class="sp"></span>${ST.isPrincipal?'<button class="btn sm" id="brEdit">Editar</button>':''}</div>
+      <p class="hint">Identidad visual de SPES en los documentos que generas. El color de acento y el pie se usan en los recibos PDF; el logo queda guardado para el sitio y el portal.</p>
+      <div class="panel" style="max-width:560px"><dl class="kv">
+        <dt>Logo</dt><dd>${cf.logo_url?('<img src="'+esc(cf.logo_url)+'" alt="logo" style="max-height:48px;max-width:220px" onerror="this.replaceWith(document.createTextNode(\'(no se pudo cargar la imagen)\'))">'):'—'}</dd>
+        <dt>Color de acento</dt><dd>${cf.color_acento?('<span class="swatch" style="background:'+esc(cf.color_acento)+'"></span> <code>'+esc(cf.color_acento)+'</code>'):'— (negro por omisión)'}</dd>
+        <dt>Pie de recibo</dt><dd>${esc(cf.recibo_pie||'—')}</dd>
+      </dl></div>
+      ${ST.isPrincipal?'':'<p class="hint" style="margin-top:10px">Solo el administrador principal puede editar el branding.</p>'}`;
+    if($('brEdit')) $('brEdit').addEventListener('click', async ()=>{
+      const v=await formModal({title:'Branding', fields:[
+        {key:'logo_url',label:'URL del logo (https…)',value:cf.logo_url||'',placeholder:'https://spessystems.com/logo.png'},
+        {key:'color_acento',label:'Color de acento (hex)',value:cf.color_acento||'',placeholder:'#18181b'},
+        {key:'recibo_pie',label:'Pie de recibo (una línea)',value:cf.recibo_pie||'',placeholder:'Gracias por su preferencia · spessystems.com'}
+      ], submitLabel:'Guardar'});
+      if(!v) return;
+      const col=(v.color_acento||'').trim();
+      if(col && !/^#?[0-9a-fA-F]{6}$/.test(col)) return notify('El color debe ser hex de 6 dígitos, ej. #18181b','error');
+      const { error }=await sbc.from('config').update({logo_url:v.logo_url||null, color_acento:col?(col.startsWith('#')?col:'#'+col):null, recibo_pie:v.recibo_pie||null, actualizado_at:new Date().toISOString()}).eq('id',1).select();
+      if(error){ notify('No se pudo guardar: '+error.message,'error'); return; }
+      await loadAll(); render(); toast('Branding actualizado');
+    });
+  }
+
+  // ===== CONFIGURACIÓN · CORREOS / PLANTILLAS (Bloque C) =====
+  function renderCfgCorreos(c){
+    let h=`<div class="sechead"><h2>Configuración · Correos</h2><span class="sp"></span><button class="btn sm" id="tplNew">Nueva plantilla</button></div>
+      <p class="hint">Plantillas para escribirle a los clientes sin redactar desde cero. Se usan en la ficha del cliente ("Enviar mensaje") con las variables ya sustituidas: <code>{nombre}</code> <code>{negocio}</code> <code>{plan}</code> <code>{vence}</code> <code>{monto}</code>.</p>`;
+    if(!ST.PLANTILLAS.length) h+='<div class="card state">Sin plantillas. Crea la primera.</div>';
+    else{
+      h+='<table><thead><tr><th>Plantilla</th><th>Asunto</th><th>Actualizada</th><th></th></tr></thead><tbody>';
+      for(const t of ST.PLANTILLAS) h+=`<tr><td><strong>${esc(t.nombre)}</strong></td><td class="muted" style="max-width:300px">${esc(String(t.asunto||'').slice(0,60))}</td><td class="muted">${fdate(t.updated_at)}</td><td style="text-align:right"><div class="row-actions" style="justify-content:flex-end"><button class="btn sm ghost" data-edtpl="${t.id}">Editar</button><button class="btn sm ghost" data-deltpl="${t.id}">Borrar</button></div></td></tr>`;
+      h+='</tbody></table>';
+    }
+    c.innerHTML=h;
+    const editTpl=async t=>{
+      const v=await formModal({title:t?'Editar plantilla':'Nueva plantilla', fields:[
+        {key:'nombre',label:'Nombre',value:t?t.nombre:'',required:true},
+        {key:'asunto',label:'Asunto',value:t?t.asunto:'',required:true},
+        {key:'cuerpo',label:'Cuerpo',type:'textarea',rows:8,value:t?t.cuerpo:'Hola {nombre},\n\n\n\nEquipo SPES Systems',required:true}
+      ], submitLabel:'Guardar'});
+      if(!v) return;
+      let res;
+      if(t) res=await sbc.from('plantillas_correo').update({nombre:v.nombre,asunto:v.asunto,cuerpo:v.cuerpo,updated_at:new Date().toISOString()}).eq('id',t.id).select();
+      else res=await sbc.from('plantillas_correo').insert({clave:v.nombre.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,40)||('tpl_'+Date.now()),nombre:v.nombre,asunto:v.asunto,cuerpo:v.cuerpo}).select();
+      if(res.error){ notify('No se pudo guardar: '+res.error.message,'error'); return; }
+      await loadAll(); render(); toast('Plantilla guardada');
+    };
+    $('tplNew').addEventListener('click',()=>editTpl(null));
+    c.querySelectorAll('[data-edtpl]').forEach(b=>b.addEventListener('click',()=>editTpl(ST.PLANTILLAS.find(x=>x.id===b.dataset.edtpl))));
+    c.querySelectorAll('[data-deltpl]').forEach(b=>b.addEventListener('click', async ()=>{
+      if(!await confirmModal({title:'Borrar plantilla',message:'¿Seguro?',danger:true,confirmLabel:'Borrar'})) return;
+      const { error }=await sbc.from('plantillas_correo').delete().eq('id',b.dataset.deltpl);
+      if(error){ notify(error.message,'error'); return; }
+      await loadAll(); render(); toast('Plantilla borrada');
+    }));
+  }
+
+  // ===== ANALÍTICAS (Bloque D) =====
+  const MESN=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fmtMes=k=>{ const p=String(k).split('-'); return (MESN[parseInt(p[1],10)-1]||p[1])+' '+String(p[0]).slice(2); };
+  const mesKeyOf=d=>{ const x=new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'); };
+  function barsHtml(items){
+    if(!items.length) return '<p class="muted">Sin datos.</p>';
+    const max=Math.max.apply(null, items.map(x=>x.val).concat([1]));
+    return items.map(x=>`<div class="barrow"><span class="blbl" title="${esc(x.label)}">${esc(x.label)}</span><span class="bar"><i style="width:${Math.max(2,Math.round(100*x.val/max))}%"></i></span><span class="bval">${x.txt!=null?x.txt:x.val}</span></div>`).join('');
+  }
+  function ultimosMeses(n){
+    const out=[]; const d=new Date(); d.setDate(1);
+    for(let i=0;i<n;i++){ out.unshift(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); d.setMonth(d.getMonth()-1); }
+    return out;
+  }
+
+  async function renderAnVentas(c){
+    c.innerHTML=`<div class="sechead"><h2>Ventas de la flota</h2></div>
+      <p class="hint">Lo que los POS de tus clientes reportan con la sincronización (excluye ventas canceladas). Espejo de solo lectura: agregados calculados en el servidor, sin bajar ventas una por una.</p>
+      <div class="card state" id="anv">Cargando ventas de la flota…</div>`;
+    const { data, error }=await sb.rpc('admin_sales_summary');
+    if(ST.view!=='an_ventas') return;
+    const el=$('anv'); if(!el) return;
+    if(error){ el.innerHTML='<span style="color:#dc2626">No se pudieron leer los agregados: '+esc(error.message)+'</span>'; return; }
+    const rows=data||[];
+    if(!rows.length){ el.textContent='Aún ningún cliente sube ventas a la nube. Cuando instalen la versión con sincronización, aquí verás las ventas de toda la flota.'; return; }
+    const cur=mesKeyOf(new Date());
+    const mesRows=rows.filter(r=>String(r.mes).slice(0,7)===cur);
+    const totMes=mesRows.reduce((a,r)=>a+Number(r.total||0),0);
+    const numMes=mesRows.reduce((a,r)=>a+Number(r.num_ventas||0),0);
+    const porMes={}; rows.forEach(r=>{ const k=String(r.mes).slice(0,7); porMes[k]=(porMes[k]||0)+Number(r.total||0); });
+    const meses=ultimosMeses(12).filter(k=>porMes[k]!=null);
+    const porCliente=mesRows.slice().sort((a,b)=>Number(b.total)-Number(a.total)).slice(0,15);
+    el.outerHTML=`
+      <div class="kpis">
+        <div class="kpi"><div class="n">${money(totMes)}</div><div class="l">Ventas de la flota (mes)</div></div>
+        <div class="kpi"><div class="n">${numMes}</div><div class="l">Tickets del mes</div></div>
+        <div class="kpi"><div class="n">${mesRows.length}</div><div class="l">Clientes vendiendo este mes</div></div>
+        <div class="kpi"><div class="n">${new Set(rows.map(r=>r.account_id)).size}</div><div class="l">Clientes con historial</div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>Por cliente (este mes)</h3>${barsHtml(porCliente.map(r=>({label:nameOf(r.account_id),val:Number(r.total),txt:money(Number(r.total))})))}</div>
+        <div class="panel"><h3>Por mes (flota completa)</h3>${barsHtml(meses.map(k=>({label:fmtMes(k),val:porMes[k],txt:money(porMes[k])})))}</div>
+      </div>`;
+  }
+
+  function renderAnIngresos(c){
+    const anio=new Date().getFullYear();
+    const cur=mesKeyOf(new Date());
+    const porMes={}, porMetodo={};
+    let totAnio=0;
+    for(const p of ST.PAGOS){
+      const k=mesKeyOf(p.created_at); porMes[k]=(porMes[k]||0)+Number(p.monto||0);
+      const m=p.metodo||'otro'; porMetodo[m]=(porMetodo[m]||0)+Number(p.monto||0);
+      if(new Date(p.created_at).getFullYear()===anio) totAnio+=Number(p.monto||0);
+    }
+    const meses=ultimosMeses(12).filter(k=>porMes[k]!=null);
+    const prom=ST.PAGOS.length?ST.PAGOS.reduce((a,p)=>a+Number(p.monto||0),0)/ST.PAGOS.length:0;
+    c.innerHTML=`<div class="sechead"><h2>Ingresos de SPES</h2></div>
+      <p class="hint">Ingresos reales por pagos registrados (los últimos 500). El MRR/ARR proyectado vive en el Dashboard.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="n">${money(porMes[cur]||0)}</div><div class="l">Cobrado este mes</div></div>
+        <div class="kpi"><div class="n">${money(totAnio)}</div><div class="l">Cobrado en ${anio}</div></div>
+        <div class="kpi"><div class="n">${ST.PAGOS.length}</div><div class="l">Pagos registrados</div></div>
+        <div class="kpi"><div class="n">${money(prom)}</div><div class="l">Pago promedio</div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>Por mes</h3>${barsHtml(meses.map(k=>({label:fmtMes(k),val:porMes[k],txt:money(porMes[k])})))}</div>
+        <div class="panel"><h3>Por método</h3>${barsHtml(Object.keys(porMetodo).sort((a,b)=>porMetodo[b]-porMetodo[a]).map(m=>({label:m,val:porMetodo[m],txt:money(porMetodo[m])})))}</div>
+      </div>`;
+  }
+
+  function renderAnConv(c){
+    const L=ST.LEADS;
+    const nuevos=L.filter(l=>(l.estado||'nuevo')==='nuevo').length;
+    const seguimiento=L.filter(l=>['leido','en proceso'].includes(l.estado)).length;
+    const convertidos=L.filter(l=>l.convertido_business_id||l.estado==='respondido').length;
+    const vinculados=L.filter(l=>l.convertido_business_id).length;
+    const tasa=L.length?Math.round(100*convertidos/L.length):0;
+    const por=(campo)=>{ const m={}; L.forEach(l=>{ const k=(l[campo]||'').trim(); if(k) m[k]=(m[k]||0)+1; }); return Object.keys(m).sort((a,b)=>m[b]-m[a]).slice(0,6).map(k=>({label:k,val:m[k]})); };
+    c.innerHTML=`<div class="sechead"><h2>Conversión de leads</h2></div>
+      <p class="hint">Embudo de los mensajes del sitio (últimos 500): de mensaje a cliente.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="n">${L.length}</div><div class="l">Mensajes recibidos</div></div>
+        <div class="kpi"><div class="n">${seguimiento}</div><div class="l">En seguimiento</div></div>
+        <div class="kpi"><div class="n">${convertidos}</div><div class="l">Convertidos (${vinculados} vinculados)</div></div>
+        <div class="kpi"><div class="n">${tasa}%</div><div class="l">Tasa de conversión</div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>Embudo</h3>${barsHtml([
+          {label:'Recibidos',val:L.length},{label:'Nuevos sin atender',val:nuevos},
+          {label:'En seguimiento',val:seguimiento},{label:'Convertidos',val:convertidos}
+        ])}</div>
+        <div class="panel"><h3>Por giro</h3>${barsHtml(por('industria'))}</div>
+        <div class="panel" style="grid-column:1/-1"><h3>Por ciudad</h3>${barsHtml(por('ciudad'))}</div>
+      </div>`;
+  }
+
+  function renderAnUso(c){
+    const F=ST.FLEET;
+    const now=Date.now();
+    const dAgo=ts=>(now-new Date(ts).getTime())/86400000;
+    const byAcc={}; F.forEach(r=>{ const d=dAgo(r.last_seen_at); byAcc[r.account_id]=Math.min(byAcc[r.account_id]==null?1e9:byAcc[r.account_id], d); });
+    const accs=Object.values(byAcc);
+    const hoy=accs.filter(d=>d<1).length, sem=accs.filter(d=>d<7).length, mes=accs.filter(d=>d<30).length;
+    const porVer={}, porPlat={};
+    F.forEach(r=>{ const v=r.app_version||'—'; porVer[v]=(porVer[v]||0)+1; const p=r.platform||'—'; porPlat[p]=(porPlat[p]||0)+1; });
+    const latest=(ST.VERSIONES.find(v=>v.publicada)||{}).version;
+    c.innerHTML=`<div class="sechead"><h2>Uso del sistema</h2></div>
+      <p class="hint">Actividad real de la flota por los heartbeats del POS (arranque y cada 6 horas). Última versión publicada: ${latest?'v'+esc(latest):'—'}.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="n">${accs.length}</div><div class="l">Cuentas con POS</div></div>
+        <div class="kpi"><div class="n">${hoy}</div><div class="l">Activas hoy</div></div>
+        <div class="kpi"><div class="n">${sem}</div><div class="l">Activas (7 días)</div></div>
+        <div class="kpi"><div class="n">${mes}</div><div class="l">Activas (30 días)</div></div>
+      </div>
+      ${F.length?`<div class="grid2">
+        <div class="panel"><h3>Versiones instaladas</h3>${barsHtml(Object.keys(porVer).sort((a,b)=>porVer[b]-porVer[a]).map(v=>({label:'v'+v+(latest&&v===latest?' (última)':''),val:porVer[v],txt:porVer[v]+' disp.'})))}</div>
+        <div class="panel"><h3>Plataformas</h3>${barsHtml(Object.keys(porPlat).map(p=>({label:p,val:porPlat[p],txt:porPlat[p]+' disp.'})))}</div>
+      </div>`:'<div class="card state">Aún no hay heartbeats: ninguna instalación v0.4.1+ se ha conectado.</div>'}`;
   }
 
   // ===== CUENTA =====
