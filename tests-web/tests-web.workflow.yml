@@ -1,0 +1,28 @@
+# CI del sitio SPES — smokes de las apps web (Fase 4, Bloque B; deuda #14).
+# Corre en cada push que toque las apps o la suite, y a mano desde Actions.
+name: tests-web
+on:
+  push:
+    paths:
+      - 'admin.html'
+      - 'portal.html'
+      - 'spes-ui.js'
+      - 'spes-ui.css'
+      - 'spes-data.js'
+      - 'tests-web/**'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar dependencias de la suite
+        working-directory: tests-web
+        run: npm ci
+      - name: Smoke admin + portal (jsdom)
+        working-directory: tests-web
+        run: npm test

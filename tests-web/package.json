@@ -1,0 +1,14 @@
+{
+  "name": "spes-tests-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pruebas smoke de las apps web de SPES (admin.html y portal.html) en jsdom. Fase 4, Bloque B — salda la deuda #14.",
+  "scripts": {
+    "test": "node admin.smoke.js && node portal.smoke.js",
+    "test:admin": "node admin.smoke.js",
+    "test:portal": "node portal.smoke.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}
