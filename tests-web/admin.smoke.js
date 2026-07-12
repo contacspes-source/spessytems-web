@@ -14,7 +14,7 @@ const spesData = fs.readFileSync(path.join(ROOT, 'spes-data.js'), 'utf8')
 const stub = `
 window.__q = () => { const p = Promise.resolve({ data: [], error: null });
   const h = { select(){return h}, eq(){return h}, in(){return h}, gte(){return h}, order(){return h},
-    limit(){return h}, maybeSingle(){ return Promise.resolve({data:null,error:null}) },
+    limit(){return h}, range(){return h}, maybeSingle(){ return Promise.resolve({data:null,error:null}) },
     insert(){return Promise.resolve({data:[{id:'x'}],error:null})}, update(){return h},
     delete(){return Promise.resolve({error:null})}, then(f,r){ return p.then(f,r) } };
   return h; };
@@ -22,11 +22,14 @@ window.supabase = { createClient: () => ({
   auth: { getSession: async()=>({data:{session:null}}), getUser: async()=>({error:null}),
     onAuthStateChange: ()=>{}, signInWithPassword: async()=>({error:null}), signOut: async()=>{} },
   from: () => window.__q(),
-  rpc: async () => ({ data: [], error: null }),
+  rpc: () => window.__q(),
   schema: () => ({ from: () => window.__q() })
 }) };
+// Image simulada: jsdom no carga recursos; dispara onerror en el siguiente tick
+// para que SpesData.imageDataURL resuelva null sin esperar su timeout.
+window.Image = function(){ const i={}; setTimeout(()=>{ if(i.onerror) i.onerror(); },0); return i; };
 `
-const pdfStub = `window.jspdf={jsPDF:function(){return{setFontSize(){},text(){},setTextColor(){},line(){},setDrawColor(){},save(f){window.__pdfSaved=f}}}};`
+const pdfStub = `window.jspdf={jsPDF:function(){return{setFontSize(){},setFont(){},text(){},setTextColor(){},line(){},setDrawColor(){},setLineWidth(){},addImage(){},save(f){window.__pdfSaved=f}}}};`
 html = html
   .replace(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase[^"]*"><\/script>/, '<script>' + stub + pdfStub + '</script>')
   .replace('<script src="/spes-ui.js"></script>', () => '<script>' + spesUi.replace(/<\/script>/g, '<\\/script>') + '</script>')

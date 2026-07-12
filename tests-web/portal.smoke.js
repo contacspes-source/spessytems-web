@@ -15,7 +15,7 @@ const spesData = fs.readFileSync(path.join(ROOT, 'spes-data.js'), 'utf8')
 const stub = `
 window.__q = () => { const p = Promise.resolve({ data: [], error: null });
   const h = { select(){return h}, eq(){return h}, in(){return h}, gte(){return h},
-    order(){return h}, limit(){return h}, maybeSingle(){ return Promise.resolve({data:null,error:null}) },
+    order(){return h}, limit(){return h}, range(){return h}, maybeSingle(){ return Promise.resolve({data:null,error:null}) },
     insert(){return h}, then(f,r){ return p.then(f,r) } };
   return h; };
 window.supabase = { createClient: () => ({
@@ -28,9 +28,12 @@ window.supabase = { createClient: () => ({
     signOut: async () => {}
   },
   from: () => window.__q(),
-  rpc: async () => ({ data: [], error: null }),
+  rpc: () => window.__q(),
   schema: () => ({ from: () => window.__q() })
 }) };
+// Image simulada: jsdom no carga recursos; dispara onerror en el siguiente tick
+// para que SpesData.imageDataURL resuelva null sin esperar su timeout.
+window.Image = function(){ const i={}; setTimeout(()=>{ if(i.onerror) i.onerror(); },0); return i; };
 `
 // Inyectar stubs e inlinear spes-ui (jsdom no descarga recursos externos).
 html = html
