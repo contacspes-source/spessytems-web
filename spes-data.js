@@ -23,6 +23,24 @@
   function fdate(s){ try{ return new Date(s).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}); }catch(e){ return s||'—'; } }
   function fdatetime(s){ try{ return new Date(s).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return s||'—'; } }
 
+  /* ---------- fetchAll: pagina consultas (PostgREST corta en 1000 filas) ----------
+     Fix 12-jul-2026: el portal mostraba 1,000 productos de 1,200+ porque las
+     consultas sin paginar se topan con el límite del servidor.
+     build: función que devuelve un builder NUEVO de supabase-js por página
+            (los builders no se reutilizan). La consulta debe llevar .order()
+            estable para que las páginas no se traslapen.
+     opts:  { pageSize?:1000, max?:20000 }. Lanza en error. */
+  async function fetchAll(build,opts){
+    const o=opts||{}, size=o.pageSize||1000, max=o.max||20000, out=[];
+    for(let from=0; out.length<max; from+=size){
+      const { data, error }=await build().range(from,from+size-1);
+      if(error) throw error;
+      out.push.apply(out,data||[]);
+      if(!data||data.length<size) break;
+    }
+    return out;
+  }
+
   /* ---------- Cliente Supabase (control plane via schema 'control') ----------
      opts: { detectSessionInUrl?:bool, flowType?:'pkce' }  (portal usa ambos) */
   function client(url,key,opts){
@@ -49,35 +67,78 @@
     return _jspdfReady;
   }
 
-  /* ---------- Recibo PDF ÚNICO (admin y portal) ----------
+  /* ---------- Imagen → dataURL (para el logo del recibo) ----------
+     Resuelve null si no carga (sin red, CORS, jsdom); nunca rechaza. */
+  function imageDataURL(src){
+    return new Promise(res=>{
+      let done=false; const fin=v=>{ if(!done){ done=true; res(v); } };
+      const t=setTimeout(()=>fin(null),4000);
+      try{
+        const img=new Image(); img.crossOrigin='anonymous';
+        img.onload=()=>{ clearTimeout(t); try{
+          const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+          const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0);
+          fin({ url:c.toDataURL('image/jpeg',0.92), w:img.naturalWidth||1, h:img.naturalHeight||1 });
+        }catch(_){ fin(null); } };
+        img.onerror=()=>{ clearTimeout(t); fin(null); };
+        img.src=src;
+      }catch(_){ clearTimeout(t); fin(null); }
+    });
+  }
+
+  /* ---------- Recibo PDF ÚNICO (admin y portal) — formato de marca SPES ----------
      pago:    { id, monto, metodo, nota, cubre_hasta, created_at }
      negocio: { business_name, razon_social?, rfc? }
-     config:  { empresa_nombre?, color_acento?, recibo_pie? } | null
-     Lanza en error (el llamador decide cómo notificar). */
+     config:  { empresa_nombre?, logo_url?, color_acento?, recibo_pie? } | null
+     Usa el logo del branding (o el oficial del sitio); si la imagen no carga,
+     el recibo sale igual, solo con texto. Lanza en error (el llamador notifica). */
   async function recibo(pago, negocio, config){
     const JS=await ensureJsPDF();
     const p=pago||{}, b=negocio||{}, emp=config||{};
-    const doc=new JS();
+    const doc=new JS(); // A4 vertical, unidades en mm
     const hx=String(emp.color_acento||'').replace('#','');
-    const rgb=/^[0-9a-fA-F]{6}$/.test(hx)?[parseInt(hx.slice(0,2),16),parseInt(hx.slice(2,4),16),parseInt(hx.slice(4,6),16)]:[0,0,0];
-    doc.setFontSize(20); doc.setTextColor(rgb[0],rgb[1],rgb[2]); doc.text(emp.empresa_nombre||'SPES Systems',20,22); doc.setTextColor(0);
-    doc.setFontSize(10); doc.setTextColor(120); doc.text('spessystems.com · Recibo de pago',20,28); doc.setTextColor(0);
+    const acc=/^[0-9a-fA-F]{6}$/.test(hx)?[parseInt(hx.slice(0,2),16),parseInt(hx.slice(2,4),16),parseInt(hx.slice(4,6),16)]:[17,17,17];
     const folio='REC-'+String(p.id).slice(0,8).toUpperCase();
-    let y=46; doc.setFontSize(11);
-    const line=(k,v)=>{ doc.setTextColor(120); doc.text(k,20,y); doc.setTextColor(0); doc.text(String(v||'—'),75,y); y+=8; };
-    line('Folio',folio); line('Fecha',fdate(p.created_at)); line('Cliente',b.business_name||'—');
+
+    // Encabezado: logo + marca a la izquierda; folio y fecha a la derecha.
+    const logo=await imageDataURL(emp.logo_url||'/assets/spes-logo.jpeg');
+    let x=20;
+    if(logo){ const h=14, w=Math.min(40,h*(logo.w/logo.h)); try{ doc.addImage(logo.url,'JPEG',20,12,w,h); x=20+w+6; }catch(_){ } }
+    doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(17);
+    doc.text(emp.empresa_nombre||'SPES Systems',x,19);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120);
+    doc.text('spessystems.com · Control inteligente para tu empresa',x,24.5);
+    doc.setFontSize(9); doc.setTextColor(120); doc.text('RECIBO DE PAGO',190,15,{align:'right'});
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(17); doc.text(folio,190,21,{align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120); doc.text(fdate(p.created_at),190,26,{align:'right'});
+
+    // Regla de acento bajo el encabezado.
+    doc.setDrawColor(acc[0],acc[1],acc[2]); doc.setLineWidth(0.8); doc.line(20,32,190,32);
+
+    let y=45;
+    const line=(k,v)=>{ doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(120); doc.text(k,20,y); doc.setTextColor(17); doc.text(String(v||'—'),75,y); y+=8; };
+    line('Cliente',b.business_name||'—');
     if(b.razon_social) line('Razón social',b.razon_social);
     if(b.rfc) line('RFC',b.rfc);
-    line('Concepto',p.nota||'Suscripción SPES'); line('Método',p.metodo||'—');
+    line('Concepto',p.nota||'Suscripción SPES');
+    line('Método de pago',p.metodo||'—');
     line('Cubre hasta',p.cubre_hasta?fdate(p.cubre_hasta):'—');
-    y+=4; doc.setDrawColor(220); doc.line(20,y,190,y); y+=12;
-    doc.setFontSize(15); doc.text('Total: '+money(p.monto),20,y);
-    y+=18; doc.setFontSize(9); doc.setTextColor(140);
-    doc.text('Comprobante de pago, no es una factura fiscal (CFDI).',20,y);
-    if(emp.recibo_pie){ y+=6; doc.text(String(emp.recibo_pie).slice(0,120),20,y); }
+
+    // Total: bloque protagonista, alineado a la derecha.
+    y+=4; doc.setDrawColor(225); doc.setLineWidth(0.3); doc.line(20,y,190,y); y+=14;
+    doc.setFontSize(10); doc.setTextColor(120); doc.text('TOTAL PAGADO',20,y);
+    doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(17);
+    doc.text(money(p.monto)+' MXN',190,y+1,{align:'right'});
+    doc.setFont('helvetica','normal');
+
+    // Pie legal + pie configurable del branding.
+    let fy=272; doc.setDrawColor(225); doc.setLineWidth(0.3); doc.line(20,fy,190,fy); fy+=6;
+    doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('Comprobante de pago. No es una factura fiscal (CFDI).',20,fy);
+    if(emp.recibo_pie){ fy+=5; doc.text(String(emp.recibo_pie).slice(0,140),20,fy); }
     doc.save(folio+'.pdf');
     return folio;
   }
 
-  window.SpesData={ safeStorage, esc, money, daysLeft, fdate, fdatetime, client, ensureJsPDF, recibo };
+  window.SpesData={ safeStorage, esc, money, daysLeft, fdate, fdatetime, fetchAll, client, ensureJsPDF, recibo };
 })();

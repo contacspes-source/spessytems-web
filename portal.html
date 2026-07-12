@@ -134,7 +134,10 @@
   });
   async function cerrarSesion(){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){ } try{ Object.keys(localStorage).filter(k=>k.indexOf('sb-')===0).forEach(k=>localStorage.removeItem(k)); }catch(_){ } showLogin(); }
   $('logout').addEventListener('click', cerrarSesion);
-  sb.auth.onAuthStateChange((ev,ses)=>{ if(ev==='INITIAL_SESSION') return; if(!ses||ev==='SIGNED_OUT'){ showLogin(); return; } enter(ses); });
+  // Fix 12-jul-2026: TOKEN_REFRESHED (cada ~1 h) y los SIGNED_IN repetidos al
+  // volver a la pestaña NO deben re-arrancar la app (se sentía como recarga
+  // constante de página). Solo se entra si el portal aún no está visible.
+  sb.auth.onAuthStateChange((ev,ses)=>{ if(ev==='INITIAL_SESSION') return; if(!ses||ev==='SIGNED_OUT'){ showLogin(); return; } if(!$('app').classList.contains('hidden')) return; enter(ses); });
   (async ()=>{ try{ const {data}=await sb.auth.getSession(); if(!data||!data.session){ showLogin(); return; } const {error}=await sb.auth.getUser(); if(error){ await cerrarSesion(); } else enter(data.session); }catch(_){ await cerrarSesion(); } })();
   function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
 
@@ -153,6 +156,10 @@
   async function loadPortal(){
     const uid=ST.uid;
     const monthStart=(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString(); })();
+    // Fix 12-jul-2026: PostgREST corta en 1000 filas; las consultas que pueden
+    // crecer (catálogo, stock, documentos, ventas del mes) se paginan con
+    // SpesData.fetchAll (envuelto para conservar la forma {data}).
+    const all=(q,o)=>SpesData.fetchAll(q,o).then(rows=>({data:rows}));
     try{
       const [biz,sub,pg,tk,an,ve,kb,pl,sa,pr,fl,st,docs,pts,mov,msa]=await Promise.all([
         sbc.from('businesses').select('*').eq('id',uid).maybeSingle(),
@@ -164,23 +171,23 @@
         sbc.from('kb_articulos').select('*').eq('publicado',true).order('created_at',{ascending:false}),
         sbc.from('planes').select('*').eq('activo',true),
         sb.from('sales').select('id,folio,total,status,created_at').eq('account_id',uid).order('created_at',{ascending:false}).limit(500),
-        sb.from('records').select('record_id,data').eq('account_id',uid).eq('table_name','products'),
+        all(()=>sb.from('records').select('record_id,data').eq('account_id',uid).eq('table_name','products').order('record_id')),
         sbc.from('fleet').select('*').eq('account_id',uid).order('last_seen_at',{ascending:false}),
-        sb.rpc('sync_stock_levels'),
+        all(()=>sb.rpc('sync_stock_levels').order('product_id')),
         // Bloque P: documentos del Bloque C materializados en records (espejo de lectura).
-        sb.from('records').select('table_name,record_id,data')
+        all(()=>sb.from('records').select('table_name,record_id,data')
           .eq('account_id',uid)
           .in('table_name',['purchase_orders','returns','cash_sessions','cash_movements','egresos','expenses','employees','customers','suppliers'])
-          .order('updated_at',{ascending:false}).limit(2500),
+          .order('updated_at',{ascending:false}).order('record_id'),{max:10000}),
         // Saldo de lealtad = suma del log en el servidor (C1/C3). El campo
         // loyalty_points dentro de records.customers quedó obsoleto: NO usarlo.
-        sb.rpc('sync_loyalty_levels'),
+        all(()=>sb.rpc('sync_loyalty_levels').order('customer_id')),
         // Mermas/salidas: los movimientos viajan en el log de sync (no en records).
         sb.from('sync_log').select('id,payload,created_at').eq('account_id',uid)
           .eq('op_type','stock.movement').order('id',{ascending:false}).limit(600),
         // Ventas del mes CON renglones (para top de productos en Reportes).
-        sb.from('sales').select('status,created_at,data').eq('account_id',uid)
-          .gte('created_at',monthStart).order('created_at',{ascending:false}).limit(1000)
+        all(()=>sb.from('sales').select('status,created_at,data').eq('account_id',uid)
+          .gte('created_at',monthStart).order('created_at',{ascending:false}).order('id'),{max:5000})
       ]);
       ST.biz=biz.data||null; ST.sub=sub.data||null;
       ST.PAGOS=(pg.data||[]).map(x=>({...x,created_at:x.created_at||x.fecha}));
@@ -678,7 +685,7 @@
   async function genRecibo(pid){
     const p=ST.PAGOS.find(x=>x.id===pid); if(!p) return;
     try{
-      if(_cfgRecibo===undefined){ try{ _cfgRecibo=(await sbc.from('config').select('empresa_nombre,color_acento,recibo_pie').maybeSingle()).data||null; }catch(_){ _cfgRecibo=null; } }
+      if(_cfgRecibo===undefined){ try{ _cfgRecibo=(await sbc.from('config').select('empresa_nombre,logo_url,color_acento,recibo_pie').maybeSingle()).data||null; }catch(_){ _cfgRecibo=null; } }
       await SpesData.recibo(p, ST.biz||{}, _cfgRecibo);
     }catch(e){ notify('No se pudo generar el recibo: '+(e.message||e),'error'); }
   }

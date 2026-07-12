@@ -202,6 +202,10 @@
   sb.auth.onAuthStateChange((event, session)=>{
     if(event==='INITIAL_SESSION') return;
     if(!session || event==='SIGNED_OUT'){ showLogin(); return; }
+    // Fix 12-jul-2026: TOKEN_REFRESHED (cada ~1 h) y los SIGNED_IN repetidos al
+    // volver a la pestaña NO deben re-arrancar el panel (se sentía como recarga
+    // constante de página). Solo se entra si el panel aún no está visible.
+    if(!$('app').classList.contains('hidden')) return;
     showApp(session);
   });
   (async ()=>{
@@ -567,7 +571,9 @@
     try{
       const ini=new Date(); ini.setDate(1); ini.setHours(0,0,0,0);
       const [ven, prod, cli, last]=await Promise.all([
-        sb.from('sales').select('total,status,created_at').eq('account_id',b.id).gte('created_at',ini.toISOString()).limit(2000),
+        // Fix 12-jul-2026: paginado con fetchAll (PostgREST corta en 1000 filas;
+        // un cliente con mes fuerte superaría el corte y subestimaría sus ventas).
+        SpesData.fetchAll(()=>sb.from('sales').select('total,status,created_at').eq('account_id',b.id).gte('created_at',ini.toISOString()).order('created_at').order('id'),{max:5000}).then(rows=>({data:rows})),
         sb.from('records').select('record_id',{count:'exact',head:true}).eq('account_id',b.id).eq('table_name','products').eq('is_deleted',false),
         sb.from('records').select('record_id',{count:'exact',head:true}).eq('account_id',b.id).eq('table_name','customers').eq('is_deleted',false),
         sb.from('sync_log').select('received_at').eq('account_id',b.id).order('received_at',{ascending:false}).limit(1)
