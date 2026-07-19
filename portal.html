@@ -185,6 +185,7 @@
     // Fase A (Reportes): se cargan ventas CON renglones desde el 1 del mes
     // ANTERIOR para poder comparar contra el periodo previo.
     const monthStart=(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth()-1,1).toISOString(); })();
+    ST._salesFrom=monthStart;
     // Fix 12-jul-2026: PostgREST corta en 1000 filas; las consultas que pueden
     // crecer (catálogo, stock, documentos, ventas del mes) se paginan con
     // SpesData.fetchAll (envuelto para conservar la forma {data}).
@@ -651,11 +652,9 @@
   }
 
   // ===== REPORTES =====
-  // Fase A (roadmap portal de gestion, 19-jul-2026): desglose por periodo,
-  // producto, categoria, metodo de pago y empleado + comparativa vs el periodo
-  // anterior. Fuente: MONTH_SALES (ventas CON renglones desde el 1 del mes
-  // anterior). La utilidad es ESTIMADA: venta menos costo capturado (un
-  // producto sin costo cuenta como pura utilidad).
+  // Fase A: periodos + rango libre + filtros (sucursal/empleado), grafica de
+  // LINEAS (diario / acumulado / periodo anterior) y comparativa. La utilidad
+  // es ESTIMADA (venta menos costo capturado).
   const PAY_LBL={ cash:'Efectivo', card:'Tarjeta', transfer:'Transferencia', credit:'Saldo a favor' };
   function repBars(rows){
     if(!rows.length) return '<div class="state">Sin datos en este periodo.</div>';
@@ -667,23 +666,62 @@
         <span style="width:90px;text-align:right;font-size:12px;font-weight:700">${money(r.total)}</span>
       </div>`).join('')+'</div>';
   }
+  function fmtK(v){ return v>=1000?('$'+(Math.round(v/100)/10)+'k'):('$'+Math.round(v)); }
+  // Grafica de lineas: cuadricula horizontal, puntos huecos y series apagables.
+  function repLine(labels,series){
+    const W=560,H=250,L=52,Rr=14,T=12,B=26;
+    const vis=series.filter(s=>s.on);
+    const max=Math.max(1,...vis.flatMap(s=>s.vals));
+    const n=Math.max(2,labels.length);
+    const x=i=>L+(W-L-Rr)*i/(n-1);
+    const y=v=>T+(H-T-B)*(1-v/max);
+    const grid=[0,.25,.5,.75,1].map(f=>{ const v=max*f; return '<line x1="'+L+'" y1="'+y(v)+'" x2="'+(W-Rr)+'" y2="'+y(v)+'" stroke="var(--border)" stroke-width="1"/><text x="'+(L-8)+'" y="'+(y(v)+3.5)+'" text-anchor="end" font-size="9.5" fill="var(--muted)">'+fmtK(v)+'</text>'; }).join('');
+    const step=Math.max(1,Math.ceil(n/7));
+    const xlab=labels.map((lb,i)=>(i%step===0||i===n-1)?('<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9.5" fill="var(--muted)">'+esc(lb)+'</text>'):'').join('');
+    const lines=vis.map(s=>{
+      const pts=s.vals.map((v,i)=>x(i)+','+y(v)).join(' ');
+      const dots=(n<=45)?s.vals.map((v,i)=>'<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.4" fill="var(--surface)" stroke="'+s.color+'" stroke-width="2"/>').join(''):'';
+      return '<polyline points="'+pts+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+dots;
+    }).join('');
+    return '<div class="card" style="padding:14px 8px 4px"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+grid+lines+xlab+'</svg></div>';
+  }
+  // Carga ventas mas antiguas bajo demanda (rango libre fuera de la ventana cargada).
+  async function ensureSalesRange(fromIso){
+    if(ST._salesFrom && fromIso>=ST._salesFrom) return;
+    const upto=ST._salesFrom||new Date().toISOString();
+    try{
+      const older=await SpesData.fetchAll(()=>sb.from('sales').select('status,created_at,data').eq('account_id',ST.uid).gte('created_at',fromIso).lt('created_at',upto).order('created_at',{ascending:false}).order('id'),{max:8000});
+      ST.MONTH_SALES=ST.MONTH_SALES.concat(older||[]);
+      ST._salesFrom=fromIso;
+    }catch(_){ /* sin red: el rango usara lo ya cargado */ }
+  }
   function rReportes(c){
     const per=ST.repPeriod||'mes';
+    if(!ST.repF) ST.repF={branch:'',emp:''};
+    if(!ST.repSeries) ST.repSeries={d:true,a:true,p:true};
     const now=new Date();
     const day0=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
-    // Rango del periodo [from,to) + rango previo [pFrom,pTo) para comparar.
+    if(!ST.repRange){ const f=new Date(now.getFullYear(),now.getMonth(),1); ST.repRange={from:f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-01', to:now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')}; }
+    // Rango [from,to) del periodo + rango previo [pFrom,pTo) para comparar.
     let from,to=new Date(now.getTime()+60000),pFrom=null,pTo=null;
     if(per==='hoy'){ from=day0(now); pFrom=new Date(from.getTime()-86400000); pTo=from; }
     else if(per==='7d'){ from=new Date(day0(now).getTime()-6*86400000); pFrom=new Date(from.getTime()-7*86400000); pTo=from; }
     else if(per==='mesant'){ from=new Date(now.getFullYear(),now.getMonth()-1,1); to=new Date(now.getFullYear(),now.getMonth(),1); }
+    else if(per==='rango'){ from=new Date(ST.repRange.from+'T00:00:00'); to=new Date(new Date(ST.repRange.to+'T00:00:00').getTime()+86400000); const len=to.getTime()-from.getTime(); pFrom=new Date(from.getTime()-len); pTo=from; }
     else { from=new Date(now.getFullYear(),now.getMonth(),1); const el=now.getTime()-from.getTime(); pFrom=new Date(now.getFullYear(),now.getMonth()-1,1); pTo=new Date(pFrom.getTime()+el); }
     const inR=(iso,a,b)=>{ const t=new Date(iso).getTime(); return t>=a.getTime()&&t<b.getTime(); };
     const sale=s=>(s.data&&s.data.sale)||{};
     const items=s=>((s.data&&s.data.items)||[]).filter(it=>!it.is_deleted);
     const pays=s=>((s.data&&s.data.payments)||[]).filter(p=>!p.is_deleted);
     const S=ST.MONTH_SALES.filter(s=>s.status!=='cancelled');
-    const cur=S.filter(s=>inR(s.created_at,from,to));
-    const prev=(pFrom&&pTo)?S.filter(s=>inR(s.created_at,pFrom,pTo)):null;
+    // Opciones de filtros (de TODAS las ventas cargadas).
+    const brIds=[]; const emOpts={};
+    S.forEach(s=>{ const b=sale(s).branch_id; if(b&&brIds.indexOf(b)<0) brIds.push(b); const e=sale(s).employee_id; if(e&&!emOpts[e]) emOpts[e]=(s.data&&s.data.employee_name)||('Empleado '+String(e).slice(0,4)); });
+    brIds.sort(); const brLabel={}; brIds.forEach((b,i)=>{ brLabel[b]='Sucursal '+(i+1); });
+    const F=ST.repF;
+    const pass=s=>(!F.branch||sale(s).branch_id===F.branch)&&(!F.emp||sale(s).employee_id===F.emp);
+    const cur=S.filter(s=>inR(s.created_at,from,to)&&pass(s));
+    const prev=(pFrom&&pTo)?S.filter(s=>inR(s.created_at,pFrom,pTo)&&pass(s)):null;
     const tot=a=>a.reduce((x,s)=>x+Number(sale(s).total||0),0);
     const util=a=>{ let u=0; a.forEach(s=>{ items(s).forEach(it=>{ u+=Number(it.line_total||0)-Number(it.cost_price||0)*Number(it.quantity||0); }); }); return u; };
     const sumk=(a,k)=>a.reduce((x,y)=>x+Number(y[k]||0),0);
@@ -692,101 +730,134 @@
     const uTot=util(cur), uPrev=prev?util(prev):null;
     const tickets=cur.length, tickProm=tickets?vTot/tickets:0;
     const desc=cur.reduce((x,s)=>x+Number(sale(s).discount_total||0),0);
+    let tax=0,cashT=0,cardT=0,otrosT=0;
+    cur.forEach(s=>{ tax+=Number(sale(s).tax_total||0); const ps=pays(s); if(ps.length){ ps.forEach(p=>{ const a2=Number(p.amount||0); if(p.method==='cash')cashT+=a2; else if(p.method==='card')cardT+=a2; else otrosT+=a2; }); } else { const a2=Number(sale(s).total||0); if(sale(s).payment_method==='card')cardT+=a2; else cashT+=a2; } });
     const devs=ST.RETURNS.filter(r=>r.created_at&&inR(r.created_at,from,to));
     const egs=ST.EGRESOS.filter(e=>e.created_at&&inR(e.created_at,from,to));
     const mms=ST.MERMAS.filter(m=>m.created_at&&inR(m.created_at,from,to));
     const mermUnits=Math.abs(mms.reduce((a,m)=>a+Number(m.qty_change||0),0));
-    const PERS=[['hoy','Hoy'],['7d','7 d\u00edas'],['mes','Este mes'],['mesant','Mes anterior']];
-    const perLbl=(PERS.find(p=>p[0]===per)||[])[1]||per; const fromStr=from.toLocaleDateString('es-MX'); const toStr=new Date(Math.min(to.getTime(),Date.now())).toLocaleDateString('es-MX'); const fileTag=per+'-'+new Date().toISOString().slice(0,10);
+    const PERS=[['hoy','Hoy'],['7d','7 días'],['mes','Este mes'],['mesant','Mes anterior'],['rango','Rango']];
+    const perLbl=(PERS.find(p=>p[0]===per)||[])[1]||per;
+    const fromStr=from.toLocaleDateString('es-MX'); const toStr=new Date(Math.min(to.getTime()-1,Date.now())).toLocaleDateString('es-MX');
+    const fileTag=per+'-'+new Date().toISOString().slice(0,10);
+    const filterDesc=[F.branch?('Sucursal: '+(brLabel[F.branch]||'')):'' , F.emp?('Empleado: '+(emOpts[F.emp]||'')):''].filter(Boolean).join(' · ');
     const selHtml=PERS.map(p=>`<button class="btn ${p[0]===per?'':'ghost '}sm" data-per="${p[0]}">${p[1]}</button>`).join('');
-    c.innerHTML=`<h2>Reportes</h2><p class="sub">La foto de tu negocio, con desglose por periodo y comparativa.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">${selHtml}<span style="flex:1"></span><button class="btn ghost sm" id="repXls">Exportar Excel</button><button class="btn ghost sm" id="repPdf">Exportar PDF</button></div>
+    const brSel='<select id="repBr" style="width:170px"><option value="">Todas las sucursales</option>'+brIds.map(b=>'<option value="'+esc(b)+'"'+(F.branch===b?' selected':'')+'>'+esc(brLabel[b])+'</option>').join('')+'</select>';
+    const emSel='<select id="repEm" style="width:190px"><option value="">Todos los empleados</option>'+Object.keys(emOpts).map(e=>'<option value="'+esc(e)+'"'+(F.emp===e?' selected':'')+'>'+esc(emOpts[e])+'</option>').join('')+'</select>';
+    c.innerHTML=`<h2>Reportes</h2><p class="sub">La foto de tu negocio, con desglose, filtros y comparativa.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">${selHtml}<span style="flex:1"></span><button class="btn ghost sm" id="repXls">Exportar Excel</button><button class="btn sm" id="repPdf">Imprimir PDF</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+        <input type="date" id="repF1" value="${esc(ST.repRange.from)}" style="width:150px">
+        <span class="muted">a</span>
+        <input type="date" id="repF2" value="${esc(ST.repRange.to)}" style="width:150px">
+        <button class="btn ghost sm" id="repGo">Aplicar rango</button>
+        ${brSel}${emSel}
+      </div>
+      ${filterDesc?('<p class="muted" style="margin:-6px 0 12px;font-size:12.5px">Filtrando · '+esc(filterDesc)+'</p>'):''}
       <div class="cards">
-        <div class="card"><div class="n">${money(vTot)}${pct(vTot,vPrev)}</div><div class="l">Ventas \u00b7 ${tickets} tickets${prev?' \u00b7 vs periodo anterior':''}</div></div>
+        <div class="card"><div class="n">${money(vTot)}${pct(vTot,vPrev)}</div><div class="l">Ventas · ${tickets} tickets${prev?' · vs periodo anterior':''}</div></div>
         <div class="card"><div class="n">${money(tickProm)}</div><div class="l">Ticket promedio</div></div>
         <div class="card"><div class="n">${money(uTot)}${pct(uTot,uPrev)}</div><div class="l">Utilidad estimada</div></div>
       </div>
       <div class="cards">
-        <div class="card"><div class="n">${money(sumk(devs,'total'))}</div><div class="l">Devoluciones \u00b7 ${devs.length}</div></div>
-        <div class="card"><div class="n">${money(sumk(egs,'amount'))}</div><div class="l">Egresos \u00b7 ${egs.length}</div></div>
+        <div class="card"><div class="n">${money(sumk(devs,'total'))}</div><div class="l">Devoluciones · ${devs.length}</div></div>
+        <div class="card"><div class="n">${money(sumk(egs,'amount'))}</div><div class="l">Egresos · ${egs.length}</div></div>
         <div class="card"><div class="n">${money(desc)}</div><div class="l">Descuentos otorgados</div></div>
       </div>`;
-    const attach=()=>{ c.querySelectorAll('[data-per]').forEach(b=>b.addEventListener('click',()=>{ ST.repPeriod=b.dataset.per; rReportes(c); })); const bx=c.querySelector('#repXls'); if(bx) bx.addEventListener('click',()=>{ void repExcel(); }); const bp=c.querySelector('#repPdf'); if(bp) bp.addEventListener('click',repPdf); };
-    if(!cur.length){ ST._rep={label:perLbl,fromStr,toStr,fileTag,vTot:0,tickets:0,tickProm:0,uTot:0,desc:0,devsN:devs.length,devsT:sumk(devs,'total'),egsN:egs.length,egsT:sumk(egs,'amount'),mermU:mermUnits,days:[],prods:[],pays:[],emps:[]}; c.insertAdjacentHTML('beforeend','<div class="state" style="margin-top:6px">No hay ventas en este periodo.</div>'); attach(); return; }
-    // Ventas por dia (o por hora si el periodo es Hoy).
-    let buckets=[];
+    const attach=()=>{
+      c.querySelectorAll('[data-per]').forEach(b=>b.addEventListener('click',async()=>{ if(b.dataset.per==='rango') await ensureSalesRange(new Date(ST.repRange.from+'T00:00:00').toISOString()); ST.repPeriod=b.dataset.per; rReportes(c); }));
+      const bx=c.querySelector('#repXls'); if(bx) bx.addEventListener('click',()=>{ void repExcel(); });
+      const bp=c.querySelector('#repPdf'); if(bp) bp.addEventListener('click',repPdf);
+      const go=c.querySelector('#repGo'); if(go) go.addEventListener('click',async()=>{ const f=c.querySelector('#repF1').value, t=c.querySelector('#repF2').value; if(!f||!t||f>t){ notify('Elige un rango válido (desde ≤ hasta).','error'); return; } go.textContent='Cargando…'; ST.repRange={from:f,to:t}; await ensureSalesRange(new Date(f+'T00:00:00').toISOString()); ST.repPeriod='rango'; rReportes(c); });
+      const br=c.querySelector('#repBr'); if(br) br.addEventListener('change',()=>{ ST.repF.branch=br.value; rReportes(c); });
+      const em=c.querySelector('#repEm'); if(em) em.addEventListener('change',()=>{ ST.repF.emp=em.value; rReportes(c); });
+      c.querySelectorAll('[data-serie]').forEach(b=>b.addEventListener('click',()=>{ ST.repSeries[b.dataset.serie]=!ST.repSeries[b.dataset.serie]; rReportes(c); }));
+    };
+    if(!cur.length){ ST._rep={label:perLbl,fromStr,toStr,fileTag,filterDesc,vTot:0,tickets:0,tickProm:0,uTot:0,desc:0,tax:0,cashT:0,cardT:0,otrosT:0,gross:0,units:0,costT:0,prodT:0,devsN:devs.length,devsT:sumk(devs,'total'),egsN:egs.length,egsT:sumk(egs,'amount'),mermU:mermUnits,days:[],prods:[],pays:[],emps:[]}; c.insertAdjacentHTML('beforeend','<div class="state" style="margin-top:6px">No hay ventas en este periodo (con estos filtros).</div>'); attach(); return; }
+    // ----- Grafica de lineas: diario/por hora, acumulado y periodo anterior -----
+    let labels=[],dayVals=[],prevVals=[];
     if(per==='hoy'){
-      for(let h=0;h<24;h++) buckets.push({label:String(h).padStart(2,'0')+':00', total:0});
-      cur.forEach(s=>{ const hh=new Date(s.created_at).getHours(); buckets[hh].total+=Number(sale(s).total||0); });
-      buckets=buckets.filter((b,i)=>b.total>0||(i>=8&&i<=21));
+      for(let h=0;h<24;h++){ labels.push(String(h).padStart(2,'0')+':00'); dayVals.push(0); prevVals.push(0); }
+      cur.forEach(s=>{ dayVals[new Date(s.created_at).getHours()]+=Number(sale(s).total||0); });
+      if(prev) prev.forEach(s=>{ prevVals[new Date(s.created_at).getHours()]+=Number(sale(s).total||0); });
+      let lo=8,hi=21; for(let i=0;i<24;i++){ if(dayVals[i]>0||prevVals[i]>0){ lo=Math.min(lo,i); hi=Math.max(hi,i); } }
+      labels=labels.slice(lo,hi+1); dayVals=dayVals.slice(lo,hi+1); prevVals=prevVals.slice(lo,hi+1);
     } else {
       const endMs=Math.min(to.getTime(),Date.now()+86400000);
       const nd=Math.max(1,Math.ceil((endMs-from.getTime())/86400000));
-      const idx={};
-      for(let i=0;i<nd;i++){ const d=new Date(from.getTime()+i*86400000); const b={label:d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}), total:0}; idx[d.toDateString()]=b; buckets.push(b); }
-      cur.forEach(s=>{ const b=idx[new Date(s.created_at).toDateString()]; if(b) b.total+=Number(sale(s).total||0); });
+      const stepDays=nd>92?7:1;
+      const nb=Math.ceil(nd/stepDays);
+      for(let i=0;i<nb;i++){ const d=new Date(from.getTime()+i*stepDays*86400000); labels.push(d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})); dayVals.push(0); prevVals.push(0); }
+      const bidx=(t,base)=>Math.floor((t-base)/(stepDays*86400000));
+      cur.forEach(s=>{ const i=bidx(new Date(s.created_at).getTime(),from.getTime()); if(i>=0&&i<nb) dayVals[i]+=Number(sale(s).total||0); });
+      if(prev) prev.forEach(s=>{ const i=bidx(new Date(s.created_at).getTime(),pFrom.getTime()); if(i>=0&&i<nb) prevVals[i]+=Number(sale(s).total||0); });
     }
-    // Top productos (con utilidad por producto).
+    const cum=[]; let ac=0; dayVals.forEach(v=>{ ac+=v; cum.push(ac); });
+    const pcum=[]; let pc=0; prevVals.forEach(v=>{ pc+=v; pcum.push(pc); });
+    const series=[
+      {key:'d',name:per==='hoy'?'Por hora':'Diario',color:'#60a5fa',vals:dayVals,on:!!ST.repSeries.d},
+      {key:'a',name:'Acumulado',color:'#22c55e',vals:cum,on:!!ST.repSeries.a},
+      {key:'p',name:'Anterior (acum.)',color:'#f59e0b',vals:pcum,on:!!ST.repSeries.p&&!!prev}
+    ];
+    const legend='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;justify-content:center">'+series.map(s=>'<button class="btn ghost sm" data-serie="'+s.key+'" style="border:1.5px solid '+s.color+';color:'+s.color+';font-weight:800;letter-spacing:.04em;'+(s.on?'':'opacity:.35;')+'">'+esc(s.name.toUpperCase())+'</button>').join('')+'</div>';
+    // ----- Desgloses -----
     const topAgg={};
-    cur.forEach(s=>{ items(s).forEach(it=>{ const k=it.name||'\u2014'; const t=(topAgg[k]=topAgg[k]||{name:k,sku:it.sku||'',qty:0,total:0,util:0,cost:0}); t.qty+=Number(it.quantity||0); t.total+=Number(it.line_total||0); t.cost+=Number(it.cost_price||0)*Number(it.quantity||0); t.util+=Number(it.line_total||0)-Number(it.cost_price||0)*Number(it.quantity||0); }); });
+    cur.forEach(s=>{ items(s).forEach(it=>{ const k=it.name||'—'; const t=(topAgg[k]=topAgg[k]||{name:k,sku:it.sku||'',qty:0,total:0,util:0,cost:0}); t.qty+=Number(it.quantity||0); t.total+=Number(it.line_total||0); t.cost+=Number(it.cost_price||0)*Number(it.quantity||0); t.util+=Number(it.line_total||0)-Number(it.cost_price||0)*Number(it.quantity||0); }); });
     const prodAll=Object.values(topAgg).sort((a,b)=>b.total-a.total);
     const top10=prodAll.slice(0,10);
-    // Por categoria (via producto -> category_id -> nombre sincronizado).
     const PM={}; ST.PRODUCTS.forEach(p=>{ PM[p.id]=p; });
     const catAgg={};
-    cur.forEach(s=>{ items(s).forEach(it=>{ const p=PM[it.product_id]; const cn=(p&&p.category_id&&ST.CATEGORIES[p.category_id])||'Sin categor\u00eda'; const t=(catAgg[cn]=catAgg[cn]||{label:cn,total:0}); t.total+=Number(it.line_total||0); }); });
+    cur.forEach(s=>{ items(s).forEach(it=>{ const p=PM[it.product_id]; const cn=(p&&p.category_id&&ST.CATEGORIES[p.category_id])||'Sin categoría'; const t=(catAgg[cn]=catAgg[cn]||{label:cn,total:0}); t.total+=Number(it.line_total||0); }); });
     const catRows=Object.values(catAgg).sort((a,b)=>b.total-a.total).slice(0,8);
-    // Por metodo de pago (pagos reales; si una venta vieja no trae pagos, usa el metodo del encabezado).
     const payAgg={};
-    cur.forEach(s=>{ const ps=pays(s); if(ps.length){ ps.forEach(p=>{ const k=PAY_LBL[p.method]||p.method||'\u2014'; const t=(payAgg[k]=payAgg[k]||{label:k,total:0}); t.total+=Number(p.amount||0); }); } else { const m=sale(s).payment_method||'\u2014'; const k=PAY_LBL[m]||m; const t=(payAgg[k]=payAgg[k]||{label:k,total:0}); t.total+=Number(sale(s).total||0); } });
+    cur.forEach(s=>{ const ps=pays(s); if(ps.length){ ps.forEach(p=>{ const k=PAY_LBL[p.method]||p.method||'—'; const t=(payAgg[k]=payAgg[k]||{label:k,total:0}); t.total+=Number(p.amount||0); }); } else { const m=sale(s).payment_method||'—'; const k=PAY_LBL[m]||m; const t=(payAgg[k]=payAgg[k]||{label:k,total:0}); t.total+=Number(sale(s).total||0); } });
     const payRows=Object.values(payAgg).sort((a,b)=>b.total-a.total);
-    // Por empleado.
     const empAgg={};
-    cur.forEach(s=>{ const n=(s.data&&s.data.employee_name)||'\u2014'; const t=(empAgg[n]=empAgg[n]||{name:n,n:0,total:0}); t.n++; t.total+=Number(sale(s).total||0); });
+    cur.forEach(s=>{ const n2=(s.data&&s.data.employee_name)||'—'; const t=(empAgg[n2]=empAgg[n2]||{name:n2,n:0,total:0}); t.n++; t.total+=Number(sale(s).total||0); });
     const empRows=Object.values(empAgg).sort((a,b)=>b.total-a.total);
-    // Snapshot para las exportaciones (Excel/PDF): mismos datos que la vista.
+    // Snapshot para exportaciones: mismos datos y filtros que la vista.
     const expDays={};
-    cur.forEach(s=>{ const d=new Date(s.created_at); const k=d.toLocaleDateString('es-MX'); const t=(expDays[k]=expDays[k]||{day:k,ts:new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(),tickets:0,cash:0,card:0,otros:0,desc:0,total:0}); t.tickets++; t.total+=Number(sale(s).total||0); t.desc+=Number(sale(s).discount_total||0); const ps=pays(s); if(ps.length){ ps.forEach(p=>{ const a=Number(p.amount||0); if(p.method==='cash') t.cash+=a; else if(p.method==='card') t.card+=a; else t.otros+=a; }); } else { const a=Number(sale(s).total||0); if(sale(s).payment_method==='card') t.card+=a; else t.cash+=a; } });
-    ST._rep={label:perLbl,fromStr,toStr,fileTag,vTot,tickets,tickProm,uTot,desc,devsN:devs.length,devsT:sumk(devs,'total'),egsN:egs.length,egsT:sumk(egs,'amount'),mermU:mermUnits,days:Object.values(expDays).sort((a,b)=>a.ts-b.ts),prods:prodAll,pays:payRows,emps:empRows};
+    cur.forEach(s=>{ const d=new Date(s.created_at); const k=d.toLocaleDateString('es-MX'); const t=(expDays[k]=expDays[k]||{day:k,ts:new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(),tickets:0,cash:0,card:0,otros:0,desc:0,total:0}); t.tickets++; t.total+=Number(sale(s).total||0); t.desc+=Number(sale(s).discount_total||0); const ps=pays(s); if(ps.length){ ps.forEach(p=>{ const a2=Number(p.amount||0); if(p.method==='cash') t.cash+=a2; else if(p.method==='card') t.card+=a2; else t.otros+=a2; }); } else { const a2=Number(sale(s).total||0); if(sale(s).payment_method==='card') t.card+=a2; else t.cash+=a2; } });
+    ST._rep={label:perLbl,fromStr,toStr,fileTag,filterDesc,vTot,tickets,tickProm,uTot,desc,tax,cashT,cardT,otrosT,gross:vTot+desc,units:prodAll.reduce((x,p)=>x+p.qty,0),costT:prodAll.reduce((x,p)=>x+p.cost,0),prodT:prodAll.reduce((x,p)=>x+p.total,0),devsN:devs.length,devsT:sumk(devs,'total'),egsN:egs.length,egsT:sumk(egs,'amount'),mermU:mermUnits,days:Object.values(expDays).sort((a,b)=>a.ts-b.ts),prods:prodAll,pays:payRows,emps:empRows};
     const h3='style="font-size:14px;font-weight:800;margin-bottom:10px"';
     c.insertAdjacentHTML('beforeend',`
+      <div style="margin-top:18px"><h3 ${h3}>Ventas del periodo</h3>${repLine(labels,series)}${legend}</div>
       <div class="grid2" style="margin-top:18px">
-        <div><h3 ${h3}>Ventas por ${per==='hoy'?'hora':'d\u00eda'}</h3>${repBars(buckets)}</div>
         <div><h3 ${h3}>Top productos</h3>
           <div class="card" style="padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Producto</th><th>Cant.</th><th>Vendido</th><th>Utilidad</th></tr></thead><tbody>${top10.map(t=>`<tr><td>${esc(t.name)}</td><td>${(Math.round(t.qty*100)/100).toLocaleString('es-MX')}</td><td><strong>${money(t.total)}</strong></td><td class="muted">${money(t.util)}</td></tr>`).join('')}</tbody></table></div>
         </div>
+        <div><h3 ${h3}>Por categoría</h3>${repBars(catRows)}</div>
       </div>
       <div class="grid2" style="margin-top:18px">
-        <div><h3 ${h3}>Por categor\u00eda</h3>${repBars(catRows)}</div>
-        <div><h3 ${h3}>Por m\u00e9todo de pago</h3>${repBars(payRows)}</div>
-      </div>
-      <div class="grid2" style="margin-top:18px">
+        <div><h3 ${h3}>Por método de pago</h3>${repBars(payRows)}</div>
         <div><h3 ${h3}>Por empleado</h3>
           <div class="card" style="padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Empleado</th><th>Tickets</th><th>Vendido</th><th>Ticket prom.</th></tr></thead><tbody>${empRows.map(e=>`<tr><td>${esc(e.name)}</td><td>${e.n}</td><td><strong>${money(e.total)}</strong></td><td class="muted">${money(e.n?e.total/e.n:0)}</td></tr>`).join('')}</tbody></table></div>
         </div>
+      </div>
+      <div class="grid2" style="margin-top:18px">
         <div><h3 ${h3}>Movimientos del periodo</h3>
           <div class="card"><dl class="kv">
-            <dt>Devoluciones</dt><dd>${devs.length} \u00b7 ${money(sumk(devs,'total'))}</dd>
-            <dt>Egresos</dt><dd>${egs.length} \u00b7 ${money(sumk(egs,'amount'))}</dd>
-            <dt>Mermas y salidas</dt><dd>${mms.length} \u00b7 ${mermUnits.toLocaleString('es-MX')} unidades</dd>
+            <dt>Devoluciones</dt><dd>${devs.length} · ${money(sumk(devs,'total'))}</dd>
+            <dt>Egresos</dt><dd>${egs.length} · ${money(sumk(egs,'amount'))}</dd>
+            <dt>Mermas y salidas</dt><dd>${mms.length} · ${mermUnits.toLocaleString('es-MX')} unidades</dd>
             <dt>Descuentos</dt><dd>${money(desc)}</dd>
           </dl></div>
         </div>
+        <div></div>
       </div>
-      <p class="muted" style="margin-top:12px">C\u00e1lculos con las ventas sincronizadas desde el 1 del mes anterior. La utilidad es estimada: usa el costo capturado de cada producto (sin costo, el rengl\u00f3n cuenta completo como utilidad).</p>`);
+      <p class="muted" style="margin-top:12px">Cálculos con las ventas sincronizadas${ST._salesFrom?(' desde '+new Date(ST._salesFrom).toLocaleDateString('es-MX')):''}. La utilidad es estimada (usa el costo capturado de cada producto). El filtro por caja llegará cuando la app suba el dispositivo en cada venta.</p>`);
     attach();
   }
 
-  // ===== EXPORTACIONES DE REPORTES (como en la app: Excel + PDF carta) =====
-  // Excel: SheetJS cargado bajo demanda (no pesa en la carga normal del portal).
+  // ===== EXPORTACIONES DE REPORTES (formato SPES identico a la app) =====
   function loadXLSX(){ return new Promise((res,rej)=>{ if(window.XLSX) return res(); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=()=>res(); s.onerror=()=>rej(new Error('No se pudo cargar el exportador. Revisa tu internet e intenta de nuevo.')); document.head.appendChild(s); }); }
   async function repExcel(){
     const R=ST._rep; if(!R){ notify('Abre Reportes y elige un periodo primero.','error'); return; }
     try{ await loadXLSX(); }catch(e){ notify(e.message,'error'); return; }
     const biz=(ST.biz&&ST.biz.business_name)||'';
-    const meta=[['SPES Systems'],['Control inteligente para tu empresa.'],['Informe de ventas'+(biz?(' · '+biz):'')],['Periodo: '+R.label+' ('+R.fromStr+' – '+R.toStr+')'],['Generado: '+new Date().toLocaleString('es-MX')+' · Portal del cliente'],[]];
+    const meta=[['SPES Systems'],['Control inteligente para tu empresa.'],['Informe de ventas'+(biz?(' · '+biz):'')],['Periodo: '+R.label+' ('+R.fromStr+' – '+R.toStr+')'+(R.filterDesc?(' · '+R.filterDesc):'')],['Generado: '+new Date().toLocaleString('es-MX')+' · Portal del cliente'],[]];
     const wb=XLSX.utils.book_new();
-    const resumen=meta.concat([['Indicador','Valor'],['Ventas totales',R.vTot],['Tickets',R.tickets],['Ticket promedio',R.tickProm],['Utilidad estimada',R.uTot],['Descuentos otorgados',R.desc],['Devoluciones ('+R.devsN+')',R.devsT],['Egresos ('+R.egsN+')',R.egsT],['Mermas (unidades)',R.mermU]]);
+    const resumen=meta.concat([['Indicador','Valor'],['Ventas brutas',R.gross],['Descuentos',R.desc],['Ventas netas',R.vTot],['IVA incluido',R.tax],['Tickets',R.tickets],['Ticket promedio',R.tickProm],['Efectivo',R.cashT],['Tarjeta',R.cardT],['Otros métodos',R.otrosT],['Utilidad estimada',R.uTot],['Devoluciones ('+R.devsN+')',R.devsT],['Egresos ('+R.egsN+')',R.egsT],['Mermas (unidades)',R.mermU]]);
     const sh1=XLSX.utils.aoa_to_sheet(resumen); sh1['!cols']=[{wch:34},{wch:18}];
     XLSX.utils.book_append_sheet(wb,sh1,'Resumen');
     const dias=meta.concat([['Día','Tickets','Efectivo','Tarjeta','Otros','Descuentos','Total']]).concat(R.days.map(d=>[d.day,d.tickets,d.cash,d.card,d.otros,d.desc,d.total]));
@@ -800,20 +871,61 @@
     XLSX.utils.book_append_sheet(wb,sh4,'Desgloses');
     XLSX.writeFile(wb,'SPES-Reporte-'+R.fileTag+'.xlsx');
   }
-  // PDF carta: misma plantilla gris/negro con marca que letterDoc de la app;
-  // se abre en una ventana lista para imprimir / guardar como PDF.
+  // PDF: MISMA plantilla que reportHtml de la app (KPIs + resumen tipo Square +
+  // tabla con encabezado oscuro + pie SPES). Abre y manda a IMPRIMIR directo.
   function repPdf(){
     const R=ST._rep; if(!R){ notify('Abre Reportes y elige un periodo primero.','error'); return; }
-    const w=window.open('','_blank'); if(!w){ notify('Tu navegador bloqueó la ventana. Permite ventanas emergentes para exportar el PDF.','error'); return; }
-    const row=(a,b)=>'<tr><td>'+esc(String(a))+'</td><td class="r">'+b+'</td></tr>';
-    let body='<h3>Resumen · '+esc(R.label)+' ('+esc(R.fromStr)+' – '+esc(R.toStr)+')</h3><table>';
-    body+=row('Ventas totales','<b>'+money(R.vTot)+'</b>')+row('Tickets',R.tickets)+row('Ticket promedio',money(R.tickProm))+row('Utilidad estimada',money(R.uTot))+row('Descuentos otorgados',money(R.desc))+row('Devoluciones ('+R.devsN+')',money(R.devsT))+row('Egresos ('+R.egsN+')',money(R.egsT))+row('Mermas (unidades)',R.mermU)+'</table>';
-    if(R.days.length) body+='<h3>Ventas por día</h3><table><tr class="sec"><td>Día</td><td class="r">Tickets</td><td class="r">Efectivo</td><td class="r">Tarjeta</td><td class="r">Otros</td><td class="r">Total</td></tr>'+R.days.map(d=>'<tr><td>'+esc(d.day)+'</td><td class="r">'+d.tickets+'</td><td class="r">'+money(d.cash)+'</td><td class="r">'+money(d.card)+'</td><td class="r">'+money(d.otros)+'</td><td class="r">'+money(d.total)+'</td></tr>').join('')+'</table>';
-    if(R.prods.length) body+='<h3>Productos (top 15 por ingreso)</h3><table><tr class="sec"><td>Producto</td><td class="r">Unid.</td><td class="r">Ingreso</td><td class="r">Utilidad</td></tr>'+R.prods.slice(0,15).map(p=>'<tr><td>'+esc(p.name)+'</td><td class="r">'+(Math.round(p.qty*100)/100)+'</td><td class="r">'+money(p.total)+'</td><td class="r">'+money(p.util)+'</td></tr>').join('')+'</table>';
-    if(R.pays.length) body+='<h3>Por método de pago</h3><table>'+R.pays.map(p=>row(p.label,money(p.total))).join('')+'</table>';
-    if(R.emps.length) body+='<h3>Por empleado</h3><table><tr class="sec"><td>Empleado</td><td class="r">Tickets</td><td class="r">Vendido</td></tr>'+R.emps.map(e=>'<tr><td>'+esc(e.name)+'</td><td class="r">'+e.n+'</td><td class="r">'+money(e.total)+'</td></tr>').join('')+'</table>';
+    const w=window.open('','_blank'); if(!w){ notify('Tu navegador bloqueó la ventana. Permite ventanas emergentes para imprimir.','error'); return; }
+    const period=R.fromStr===R.toStr?R.fromStr:(R.fromStr+' a '+R.toStr);
+    const sub='Periodo: '+period+(R.filterDesc?(' · '+R.filterDesc):'');
+    const marginPct=R.vTot>0?Math.round((R.uTot/R.vTot)*100):0;
+    const kpis=[['Ventas totales',money(R.vTot)],['Tickets',String(R.tickets)],['Ticket promedio',R.tickets>0?money(R.tickProm):'—'],['Utilidad estimada',money(R.uTot)]];
+    const kpiCards=kpis.map(k=>'<div class="kpi"><div class="kv">'+esc(k[1])+'</div><div class="kl">'+esc(k[0])+'</div></div>').join('');
+    const sr=(cls,l,v)=>'<tr class="'+cls+'"><td class="'+((cls==='ind'||cls==='sub')?'ind':'')+'">'+esc(l)+'</td><td class="v">'+esc(v)+'</td></tr>';
+    const summary='<table class="sum"><tbody><tr class="cap"><td>Resumen</td><td class="v">'+esc(period)+'</td></tr>'
+      +sr('sec','Ventas brutas',money(R.gross))+sr('ind','Descuentos','- '+money(R.desc))+sr('sec','Ventas netas',money(R.vTot))+sr('ind','IVA incluido',money(R.tax))
+      +sr('top','Total cobrado',money(R.vTot))+sr('sub','Tarjeta',money(R.cardT))+sr('sub','Efectivo',money(R.cashT))+(R.otrosT>0?sr('sub','Otros métodos',money(R.otrosT)):'')
+      +sr('top','Utilidad estimada',money(R.uTot))+sr('ind','Margen bruto',marginPct+'%')
+      +'</tbody></table>';
+    const th=a=>'<tr>'+a.map((h,i)=>'<th style="text-align:'+(i===0?'left':'right')+'">'+esc(h)+'</th>').join('')+'</tr>';
+    const tr=a=>'<tr>'+a.map((x,i)=>'<td style="text-align:'+(i===0?'left':'right')+(i===0?'':';font-variant-numeric:tabular-nums')+'">'+x+'</td>').join('')+'</tr>';
+    const tf=a=>'<tr class="tot">'+a.map((x,i)=>'<td style="text-align:'+(i===0?'left':'right')+'">'+x+'</td>').join('')+'</tr>';
+    let det='';
+    if(R.days.length){
+      det+='<div class="dttl">Detalle por día</div><table><thead>'+th(['Periodo','Tickets','Efectivo','Tarjeta','Descuentos','Total'])+'</thead><tbody>'
+        +R.days.map(d=>tr([esc(d.day),String(d.tickets),money(d.cash),money(d.card),money(d.desc),money(d.total)])).join('')
+        +tf(['Total',String(R.tickets),money(R.cashT),money(R.cardT),money(R.desc),money(R.vTot)])+'</tbody></table>';
+    }
+    if(R.prods.length){
+      det+='<div class="dttl" style="margin-top:16px">Detalle por producto</div><table><thead>'+th(['Producto','Unidades','Ingreso','Costo','Utilidad'])+'</thead><tbody>'
+        +R.prods.map(p=>tr([esc(p.name),String(Math.round(p.qty*100)/100),money(p.total),money(p.cost),money(p.util)])).join('')
+        +tf(['Total',String(Math.round(R.units*100)/100),money(R.prodT),money(R.costT),money(R.uTot)])+'</tbody></table>';
+    }
     const biz=(ST.biz&&ST.biz.business_name)||'';
-    const html='<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de ventas</title><style>@page{size:Letter;margin:14mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:12px}.hd{display:flex;align-items:center;gap:14px;border-bottom:3px solid #111827;padding-bottom:14px;margin-bottom:16px}.hd img{height:42px;width:auto;border-radius:8px}.brand .app{font-size:18px;font-weight:800}.brand .slg{font-size:11px;color:#6b7280}.hd .meta{margin-left:auto;text-align:right}.hd .meta .t{font-size:15px;font-weight:700}.hd .meta .s{font-size:11px;color:#6b7280;margin-top:2px}h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin:18px 0 4px}table{width:100%;border-collapse:collapse}td{padding:7px 4px;border-bottom:1px solid #eef2f5}td.r{text-align:right;font-variant-numeric:tabular-nums}tr.sec td{font-weight:700;background:#f3f4f6}.ft{margin-top:22px;border-top:1px solid #e5e7eb;padding-top:12px;display:flex;justify-content:space-between;font-size:10px;color:#6b7280}.ft b{color:#111827}<\/style><\/head><body><div class="hd"><img src="'+location.origin+'/assets/spes-logo.jpeg" alt="SPES"/><div class="brand"><div class="app">SPES Systems<\/div><div class="slg">Control inteligente para tu empresa.<\/div><\/div><div class="meta"><div class="t">Informe de ventas<\/div><div class="s">'+esc(biz)+(biz?' · ':'')+esc(R.label)+'<\/div><\/div><\/div>'+body+'<div class="ft"><span>Generado desde el Portal del cliente · '+esc(new Date().toLocaleString('es-MX'))+'<\/span><span>Creado con <b>SPES Systems<\/b> · Control inteligente para tu empresa.<\/span><\/div><script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script><\/body><\/html>';
+    const html='<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de ventas</title>'
+      +'<style>@page{size:Letter;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:12px}'
+      +'.wrap{padding:28px 32px}.hd{display:flex;align-items:center;gap:14px;border-bottom:3px solid #111827;padding-bottom:14px}.hd img{height:44px;width:auto;border-radius:8px}'
+      +'.brand .app{font-size:18px;font-weight:800;color:#111827;letter-spacing:.2px}.brand .slg{font-size:11px;color:#6b7280}'
+      +'.hd .meta{margin-left:auto;text-align:right}.hd .meta .t{font-size:15px;font-weight:700;color:#111827}.hd .meta .s{font-size:11px;color:#6b7280;margin-top:2px}'
+      +'.kpis{display:flex;gap:10px;margin:18px 0}.kpi{flex:1;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;background:#f9fafb}'
+      +'.kpi .kv{font-size:18px;font-weight:800;color:#111827}.kpi .kl{font-size:10px;color:#6b7280;margin-top:2px;text-transform:uppercase;letter-spacing:.5px}'
+      +'table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#111827;color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;font-weight:600}'
+      +'td{padding:7px 10px;border-bottom:1px solid #eef2f5}tr:nth-child(even) td{background:#f9fafb}'
+      +'tr.tot td{border-top:2px solid #111827;border-bottom:none;font-weight:800;color:#111827;background:#f3f4f6}'
+      +'.sum{width:100%;border-collapse:collapse;margin:6px 0 20px;border:1px solid #e5e7eb}.sum td{padding:7px 12px;border-bottom:1px solid #eef2f5;font-size:12px}'
+      +'.sum td.v{text-align:right;font-variant-numeric:tabular-nums}.sum tr.cap td{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#f3f4f6;font-weight:700}'
+      +'.sum tr.sec td{font-weight:700;color:#111827}.sum tr.top td{border-top:2px solid #111827;font-weight:800;color:#111827;background:#f3f4f6}.sum td.ind{padding-left:26px;color:#6b7280}'
+      +'.dttl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;font-weight:700;margin-bottom:4px}'
+      +'.ft{margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#6b7280}.ft b{color:#111827}'
+      +'<\/style><\/head><body><div class="wrap">'
+      +'<div class="hd"><img src="'+location.origin+'/assets/spes-logo.jpeg" alt="SPES"/>'
+      +'<div class="brand"><div class="app">SPES Systems<\/div><div class="slg">Control inteligente para tu empresa.<\/div><\/div>'
+      +'<div class="meta"><div class="t">Informe de ventas'+(biz?(' · '+esc(biz)):'')+'<\/div><div class="s">'+esc(sub)+'<\/div><\/div><\/div>'
+      +'<div class="kpis">'+kpiCards+'<\/div>'
+      +summary
+      +det
+      +'<div class="ft"><span>Generado desde el Portal del cliente · '+esc(new Date().toLocaleString('es-MX'))+'<\/span><span>Reporte creado con <b>SPES Systems<\/b> · Control inteligente para tu empresa.<\/span><\/div>'
+      +'<\/div><script>window.onload=function(){setTimeout(function(){window.focus();window.print();},350)}<\/script><\/body><\/html>';
     w.document.write(html); w.document.close();
   }
 
