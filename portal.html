@@ -144,7 +144,7 @@
   // ===== STATE =====
   const ST={ uid:null, email:'', tab:'inicio', biz:null, sub:null, PAGOS:[], TICKETS:[], TMSGS:[], ANUNCIOS:[], VERSIONES:[], KB:[], PLANES:[], SALES:[], PRODUCTS:[], STOCK:{}, FLEET:[], ticketId:null,
     // Bloque P (Fase 2): espejo de lectura de los dominios que sincroniza el Bloque C (ADR-092).
-    PURCHASES:[], RETURNS:[], CASHS:[], CASHMOVS:[], EGRESOS:[], EXPENSES:[], EMPLOYEES:[], CUSTOMERS:[], SUPPLIERS:{}, POINTS:{}, MERMAS:[], MONTH_SALES:[] };
+    PURCHASES:[], RETURNS:[], CASHS:[], CASHMOVS:[], EGRESOS:[], EXPENSES:[], EMPLOYEES:[], CUSTOMERS:[], SUPPLIERS:{}, CATEGORIES:{}, POINTS:{}, MERMAS:[], MONTH_SALES:[], repPeriod:'mes' };
   const TABS=[ ['inicio','Inicio'],['ventas','Ventas'],['inventario','Inventario'],['suscripcion','Mi suscripción'],['recibos','Recibos'],['soporte','Soporte'],['novedades','Novedades'],['ayuda','Ayuda'] ];
 
   async function enter(session){
@@ -155,7 +155,9 @@
   }
   async function loadPortal(){
     const uid=ST.uid;
-    const monthStart=(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString(); })();
+    // Fase A (Reportes): se cargan ventas CON renglones desde el 1 del mes
+    // ANTERIOR para poder comparar contra el periodo previo.
+    const monthStart=(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth()-1,1).toISOString(); })();
     // Fix 12-jul-2026: PostgREST corta en 1000 filas; las consultas que pueden
     // crecer (catálogo, stock, documentos, ventas del mes) se paginan con
     // SpesData.fetchAll (envuelto para conservar la forma {data}).
@@ -177,7 +179,7 @@
         // Bloque P: documentos del Bloque C materializados en records (espejo de lectura).
         all(()=>sb.from('records').select('table_name,record_id,data')
           .eq('account_id',uid)
-          .in('table_name',['purchase_orders','returns','cash_sessions','cash_movements','egresos','expenses','employees','customers','suppliers'])
+          .in('table_name',['purchase_orders','returns','cash_sessions','cash_movements','egresos','expenses','employees','customers','suppliers','categories'])
           .order('updated_at',{ascending:false}).order('record_id'),{max:10000}),
         // Saldo de lealtad = suma del log en el servidor (C1/C3). El campo
         // loyalty_points dentro de records.customers quedó obsoleto: NO usarlo.
@@ -210,6 +212,7 @@
       ST.EMPLOYEES=alive(byTable.employees).sort((a,b)=>String(a.full_name||'').localeCompare(String(b.full_name||'')));
       ST.CUSTOMERS=alive(byTable.customers).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
       ST.SUPPLIERS={}; alive(byTable.suppliers).forEach(s=>{ ST.SUPPLIERS[s.id]=s.name||'—'; });
+      ST.CATEGORIES={}; alive(byTable.categories).forEach(x=>{ ST.CATEGORIES[x.id]=x.name||'—'; });
       ST.POINTS={}; (pts.data||[]).forEach(x=>{ ST.POINTS[x.customer_id]=Number(x.points)||0; });
       // Mermas = ajustes NEGATIVOS de inventario (las ventas descuentan aparte).
       ST.MERMAS=(mov.data||[]).map(r=>r.payload||{}).filter(p=>p.type==='adjust'&&Number(p.qty_change)<0);
@@ -620,44 +623,124 @@
   }
 
   // ===== REPORTES =====
+  // Fase A (roadmap portal de gestion, 19-jul-2026): desglose por periodo,
+  // producto, categoria, metodo de pago y empleado + comparativa vs el periodo
+  // anterior. Fuente: MONTH_SALES (ventas CON renglones desde el 1 del mes
+  // anterior). La utilidad es ESTIMADA: venta menos costo capturado (un
+  // producto sin costo cuenta como pura utilidad).
+  const PAY_LBL={ cash:'Efectivo', card:'Tarjeta', transfer:'Transferencia', credit:'Saldo a favor' };
+  function repBars(rows){
+    if(!rows.length) return '<div class="state">Sin datos en este periodo.</div>';
+    const max=Math.max(1,...rows.map(r=>r.total));
+    return '<div class="card" style="padding:12px">'+rows.map(r=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:3px 0">
+        <span class="muted" style="width:110px;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.label)}</span>
+        <span style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:100%;width:${Math.round(r.total/max*100)}%;background:#fff;border-radius:4px"></span></span>
+        <span style="width:90px;text-align:right;font-size:12px;font-weight:700">${money(r.total)}</span>
+      </div>`).join('')+'</div>';
+  }
   function rReportes(c){
-    const comp=ST.SALES.filter(v=>v.status!=='cancelled');
-    // Ventas por día (últimos 14 días).
-    const days=[]; const now=new Date();
-    for(let i=13;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); days.push({ key:d.toDateString(), label:d.toLocaleDateString('es-MX',{weekday:'short',day:'2-digit'}), total:0, n:0 }); }
-    const idx={}; days.forEach(d=>{ idx[d.key]=d; });
-    comp.forEach(v=>{ const k=new Date(v.created_at).toDateString(); if(idx[k]){ idx[k].total+=Number(v.total||0); idx[k].n++; } });
-    const maxDay=Math.max(1,...days.map(d=>d.total));
-    // Resumen del mes.
-    const mesV=comp.filter(v=>sameMonth(v.created_at));
-    const mesC=ST.PURCHASES.filter(p=>p.status==='received'&&p.received_at&&sameMonth(p.received_at));
-    const mesE=ST.EGRESOS.filter(e=>sameMonth(e.created_at));
-    const mesR=ST.RETURNS.filter(r=>sameMonth(r.created_at));
-    const sum=(a,k)=>a.reduce((x,y)=>x+Number(y[k]||0),0);
-    // Top productos del mes (de los renglones de venta sincronizados).
-    const top={};
-    ST.MONTH_SALES.forEach(s=>{ const d=s.data||{}; const items=(d.items||[]); items.forEach(it=>{ if(it.is_deleted) return; const k=it.name||'—'; (top[k]=top[k]||{name:k,qty:0,total:0}); top[k].qty+=Number(it.quantity||0); top[k].total+=Number(it.line_total||0); }); });
-    const top10=Object.values(top).sort((a,b)=>b.total-a.total).slice(0,10);
-    c.innerHTML=`<h2>Reportes</h2><p class="sub">La foto de tu negocio con datos de todas tus cajas.</p>
+    const per=ST.repPeriod||'mes';
+    const now=new Date();
+    const day0=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    // Rango del periodo [from,to) + rango previo [pFrom,pTo) para comparar.
+    let from,to=new Date(now.getTime()+60000),pFrom=null,pTo=null;
+    if(per==='hoy'){ from=day0(now); pFrom=new Date(from.getTime()-86400000); pTo=from; }
+    else if(per==='7d'){ from=new Date(day0(now).getTime()-6*86400000); pFrom=new Date(from.getTime()-7*86400000); pTo=from; }
+    else if(per==='mesant'){ from=new Date(now.getFullYear(),now.getMonth()-1,1); to=new Date(now.getFullYear(),now.getMonth(),1); }
+    else { from=new Date(now.getFullYear(),now.getMonth(),1); const el=now.getTime()-from.getTime(); pFrom=new Date(now.getFullYear(),now.getMonth()-1,1); pTo=new Date(pFrom.getTime()+el); }
+    const inR=(iso,a,b)=>{ const t=new Date(iso).getTime(); return t>=a.getTime()&&t<b.getTime(); };
+    const sale=s=>(s.data&&s.data.sale)||{};
+    const items=s=>((s.data&&s.data.items)||[]).filter(it=>!it.is_deleted);
+    const pays=s=>((s.data&&s.data.payments)||[]).filter(p=>!p.is_deleted);
+    const S=ST.MONTH_SALES.filter(s=>s.status!=='cancelled');
+    const cur=S.filter(s=>inR(s.created_at,from,to));
+    const prev=(pFrom&&pTo)?S.filter(s=>inR(s.created_at,pFrom,pTo)):null;
+    const tot=a=>a.reduce((x,s)=>x+Number(sale(s).total||0),0);
+    const util=a=>{ let u=0; a.forEach(s=>{ items(s).forEach(it=>{ u+=Number(it.line_total||0)-Number(it.cost_price||0)*Number(it.quantity||0); }); }); return u; };
+    const sumk=(a,k)=>a.reduce((x,y)=>x+Number(y[k]||0),0);
+    const pct=(a,b)=>{ if(b==null||b<=0) return ''; const d=(a-b)/b*100; const up=d>=0; return ' <span style="font-size:11px;font-weight:800;color:'+(up?'#34d399':'#f87171')+'">'+(up?'\u25b2 ':'\u25bc ')+Math.abs(Math.round(d))+'%</span>'; };
+    const vTot=tot(cur), vPrev=prev?tot(prev):null;
+    const uTot=util(cur), uPrev=prev?util(prev):null;
+    const tickets=cur.length, tickProm=tickets?vTot/tickets:0;
+    const desc=cur.reduce((x,s)=>x+Number(sale(s).discount_total||0),0);
+    const devs=ST.RETURNS.filter(r=>r.created_at&&inR(r.created_at,from,to));
+    const egs=ST.EGRESOS.filter(e=>e.created_at&&inR(e.created_at,from,to));
+    const mms=ST.MERMAS.filter(m=>m.created_at&&inR(m.created_at,from,to));
+    const mermUnits=Math.abs(mms.reduce((a,m)=>a+Number(m.qty_change||0),0));
+    const PERS=[['hoy','Hoy'],['7d','7 d\u00edas'],['mes','Este mes'],['mesant','Mes anterior']];
+    const selHtml=PERS.map(p=>`<button class="btn ${p[0]===per?'':'ghost '}sm" data-per="${p[0]}">${p[1]}</button>`).join('');
+    c.innerHTML=`<h2>Reportes</h2><p class="sub">La foto de tu negocio, con desglose por periodo y comparativa.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">${selHtml}</div>
       <div class="cards">
-        <div class="card"><div class="n">${money(sum(mesV,'total'))}</div><div class="l">Ventas del mes · ${mesV.length} tickets</div></div>
-        <div class="card"><div class="n">${money(sum(mesC,'total'))}</div><div class="l">Compras recibidas · ${mesC.length}</div></div>
-        <div class="card"><div class="n">${money(sum(mesE,'amount')+sum(mesR,'total'))}</div><div class="l">Egresos + devoluciones del mes</div></div>
+        <div class="card"><div class="n">${money(vTot)}${pct(vTot,vPrev)}</div><div class="l">Ventas \u00b7 ${tickets} tickets${prev?' \u00b7 vs periodo anterior':''}</div></div>
+        <div class="card"><div class="n">${money(tickProm)}</div><div class="l">Ticket promedio</div></div>
+        <div class="card"><div class="n">${money(uTot)}${pct(uTot,uPrev)}</div><div class="l">Utilidad estimada</div></div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="n">${money(sumk(devs,'total'))}</div><div class="l">Devoluciones \u00b7 ${devs.length}</div></div>
+        <div class="card"><div class="n">${money(sumk(egs,'amount'))}</div><div class="l">Egresos \u00b7 ${egs.length}</div></div>
+        <div class="card"><div class="n">${money(desc)}</div><div class="l">Descuentos otorgados</div></div>
+      </div>`;
+    const attach=()=>c.querySelectorAll('[data-per]').forEach(b=>b.addEventListener('click',()=>{ ST.repPeriod=b.dataset.per; rReportes(c); }));
+    if(!cur.length){ c.insertAdjacentHTML('beforeend','<div class="state" style="margin-top:6px">No hay ventas en este periodo.</div>'); attach(); return; }
+    // Ventas por dia (o por hora si el periodo es Hoy).
+    let buckets=[];
+    if(per==='hoy'){
+      for(let h=0;h<24;h++) buckets.push({label:String(h).padStart(2,'0')+':00', total:0});
+      cur.forEach(s=>{ const hh=new Date(s.created_at).getHours(); buckets[hh].total+=Number(sale(s).total||0); });
+      buckets=buckets.filter((b,i)=>b.total>0||(i>=8&&i<=21));
+    } else {
+      const endMs=Math.min(to.getTime(),Date.now()+86400000);
+      const nd=Math.max(1,Math.ceil((endMs-from.getTime())/86400000));
+      const idx={};
+      for(let i=0;i<nd;i++){ const d=new Date(from.getTime()+i*86400000); const b={label:d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}), total:0}; idx[d.toDateString()]=b; buckets.push(b); }
+      cur.forEach(s=>{ const b=idx[new Date(s.created_at).toDateString()]; if(b) b.total+=Number(sale(s).total||0); });
+    }
+    // Top productos (con utilidad por producto).
+    const topAgg={};
+    cur.forEach(s=>{ items(s).forEach(it=>{ const k=it.name||'\u2014'; const t=(topAgg[k]=topAgg[k]||{name:k,qty:0,total:0,util:0}); t.qty+=Number(it.quantity||0); t.total+=Number(it.line_total||0); t.util+=Number(it.line_total||0)-Number(it.cost_price||0)*Number(it.quantity||0); }); });
+    const top10=Object.values(topAgg).sort((a,b)=>b.total-a.total).slice(0,10);
+    // Por categoria (via producto -> category_id -> nombre sincronizado).
+    const PM={}; ST.PRODUCTS.forEach(p=>{ PM[p.id]=p; });
+    const catAgg={};
+    cur.forEach(s=>{ items(s).forEach(it=>{ const p=PM[it.product_id]; const cn=(p&&p.category_id&&ST.CATEGORIES[p.category_id])||'Sin categor\u00eda'; const t=(catAgg[cn]=catAgg[cn]||{label:cn,total:0}); t.total+=Number(it.line_total||0); }); });
+    const catRows=Object.values(catAgg).sort((a,b)=>b.total-a.total).slice(0,8);
+    // Por metodo de pago (pagos reales; si una venta vieja no trae pagos, usa el metodo del encabezado).
+    const payAgg={};
+    cur.forEach(s=>{ const ps=pays(s); if(ps.length){ ps.forEach(p=>{ const k=PAY_LBL[p.method]||p.method||'\u2014'; const t=(payAgg[k]=payAgg[k]||{label:k,total:0}); t.total+=Number(p.amount||0); }); } else { const m=sale(s).payment_method||'\u2014'; const k=PAY_LBL[m]||m; const t=(payAgg[k]=payAgg[k]||{label:k,total:0}); t.total+=Number(sale(s).total||0); } });
+    const payRows=Object.values(payAgg).sort((a,b)=>b.total-a.total);
+    // Por empleado.
+    const empAgg={};
+    cur.forEach(s=>{ const n=(s.data&&s.data.employee_name)||'\u2014'; const t=(empAgg[n]=empAgg[n]||{name:n,n:0,total:0}); t.n++; t.total+=Number(sale(s).total||0); });
+    const empRows=Object.values(empAgg).sort((a,b)=>b.total-a.total);
+    const h3='style="font-size:14px;font-weight:800;margin-bottom:10px"';
+    c.insertAdjacentHTML('beforeend',`
+      <div class="grid2" style="margin-top:18px">
+        <div><h3 ${h3}>Ventas por ${per==='hoy'?'hora':'d\u00eda'}</h3>${repBars(buckets)}</div>
+        <div><h3 ${h3}>Top productos</h3>
+          <div class="card" style="padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Producto</th><th>Cant.</th><th>Vendido</th><th>Utilidad</th></tr></thead><tbody>${top10.map(t=>`<tr><td>${esc(t.name)}</td><td>${(Math.round(t.qty*100)/100).toLocaleString('es-MX')}</td><td><strong>${money(t.total)}</strong></td><td class="muted">${money(t.util)}</td></tr>`).join('')}</tbody></table></div>
+        </div>
       </div>
       <div class="grid2" style="margin-top:18px">
-        <div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Ventas por día (14 días)</h3>
-          <div class="card" style="padding:12px">${days.map(d=>`
-            <div style="display:flex;align-items:center;gap:10px;padding:3px 0">
-              <span class="mono muted" style="width:64px;font-size:11px">${esc(d.label)}</span>
-              <span style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:100%;width:${Math.round(d.total/maxDay*100)}%;background:#fff;border-radius:4px"></span></span>
-              <span style="width:90px;text-align:right;font-size:12px;font-weight:700">${money(d.total)}</span>
-            </div>`).join('')}</div>
-          <p class="muted" style="margin-top:8px">Con las últimas ${ST.SALES.length} ventas sincronizadas.</p>
+        <div><h3 ${h3}>Por categor\u00eda</h3>${repBars(catRows)}</div>
+        <div><h3 ${h3}>Por m\u00e9todo de pago</h3>${repBars(payRows)}</div>
+      </div>
+      <div class="grid2" style="margin-top:18px">
+        <div><h3 ${h3}>Por empleado</h3>
+          <div class="card" style="padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Empleado</th><th>Tickets</th><th>Vendido</th><th>Ticket prom.</th></tr></thead><tbody>${empRows.map(e=>`<tr><td>${esc(e.name)}</td><td>${e.n}</td><td><strong>${money(e.total)}</strong></td><td class="muted">${money(e.n?e.total/e.n:0)}</td></tr>`).join('')}</tbody></table></div>
         </div>
-        <div><h3 style="font-size:14px;font-weight:800;margin-bottom:10px">Top productos del mes</h3>
-          ${top10.length?('<div class="card" style="padding:6px 12px"><table><thead><tr><th>Producto</th><th>Cant.</th><th>Vendido</th></tr></thead><tbody>'+top10.map(t=>`<tr><td>${esc(t.name)}</td><td>${(Math.round(t.qty*100)/100).toLocaleString('es-MX')}</td><td><strong>${money(t.total)}</strong></td></tr>`).join('')+'</tbody></table></div>'):'<div class="state">Se llenará con las ventas de este mes.</div>'}
+        <div><h3 ${h3}>Movimientos del periodo</h3>
+          <div class="card"><dl class="kv">
+            <dt>Devoluciones</dt><dd>${devs.length} \u00b7 ${money(sumk(devs,'total'))}</dd>
+            <dt>Egresos</dt><dd>${egs.length} \u00b7 ${money(sumk(egs,'amount'))}</dd>
+            <dt>Mermas y salidas</dt><dd>${mms.length} \u00b7 ${mermUnits.toLocaleString('es-MX')} unidades</dd>
+            <dt>Descuentos</dt><dd>${money(desc)}</dd>
+          </dl></div>
         </div>
-      </div>`;
+      </div>
+      <p class="muted" style="margin-top:12px">C\u00e1lculos con las ventas sincronizadas desde el 1 del mes anterior. La utilidad es estimada: usa el costo capturado de cada producto (sin costo, el rengl\u00f3n cuenta completo como utilidad).</p>`);
+    attach();
   }
 
   // ===== DISPOSITIVOS =====
