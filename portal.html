@@ -183,7 +183,7 @@
         // loyalty_points dentro de records.customers quedó obsoleto: NO usarlo.
         all(()=>sb.rpc('sync_loyalty_levels').order('customer_id')),
         // Mermas/salidas: los movimientos viajan en el log de sync (no en records).
-        sb.from('sync_log').select('id,payload,created_at').eq('account_id',uid)
+        sb.from('sync_log').select('id,payload,client_created_at').eq('account_id',uid)
           .eq('op_type','stock.movement').order('id',{ascending:false}).limit(600),
         // Ventas del mes CON renglones (para top de productos en Reportes).
         all(()=>sb.from('sales').select('status,created_at,data').eq('account_id',uid)
