@@ -59,7 +59,7 @@
     if(_jspdfReady) return _jspdfReady;
     _jspdfReady=new Promise((res,rej)=>{
       const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+      s.src='/assets/vendor/jspdf-2.5.1.umd.min.js'; s.integrity='sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk'; s.crossOrigin='anonymous';
       s.onload=()=>{ const g=get(); g?res(g):rej(new Error('jsPDF cargó pero no expuso el módulo')); };
       s.onerror=()=>rej(new Error('No se pudo descargar jsPDF (¿bloqueado por CSP o sin red?)'));
       document.head.appendChild(s);

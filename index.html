@@ -583,16 +583,16 @@ tailwind.config = {
     <p class="mt-10 text-white/50 text-sm">¿Prefieres que te escribamos nosotros? Déjanos tus datos:</p>
     <form id="leadForm" class="mt-4 grid gap-4 text-left" onsubmit="return handleContacto(event)">
       <div class="grid sm:grid-cols-2 gap-4">
-        <input required name="nombre" placeholder="Tu nombre" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
-        <input required name="negocio" placeholder="Tu negocio" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+        <input required name="nombre" minlength="2" maxlength="120" autocomplete="name" placeholder="Tu nombre" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+        <input required name="negocio" maxlength="120" autocomplete="organization" placeholder="Tu negocio" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       </div>
-      <input required type="email" name="correo" placeholder="Tu correo" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+      <input required type="email" name="correo" maxlength="160" autocomplete="email" placeholder="Tu correo" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       <div class="grid sm:grid-cols-2 gap-4">
-        <input name="telefono" placeholder="Teléfono (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
-        <input name="ciudad" placeholder="Ciudad (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+        <input name="telefono" type="tel" maxlength="25" pattern="[\d\s+\(\)\.\-]{7,25}" title="Solo números, espacios y + ( ) - ." autocomplete="tel" placeholder="Teléfono (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+        <input name="ciudad" maxlength="80" placeholder="Ciudad (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
       </div>
-      <input name="industria" placeholder="Giro / industria (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
-      <textarea name="mensaje" rows="3" placeholder="¿En qué te ayudamos?" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition"></textarea>
+      <input name="industria" maxlength="80" placeholder="Giro / industria (opcional)" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition">
+      <textarea name="mensaje" rows="3" maxlength="2000" placeholder="¿En qué te ayudamos?" class="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder-white/40 focus:outline-none focus:border-white/50 transition"></textarea>
       <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="hidden" style="display:none">
       <div class="cf-turnstile flex justify-center" data-sitekey="0x4AAAAAADkGkS8LBw02W1fz" data-theme="dark"></div>
       <button id="leadBtn" type="submit" class="bg-white text-ink font-semibold py-3.5 rounded-full hover:scale-[1.02] transition disabled:opacity-60">Enviar mensaje</button>
