@@ -72,8 +72,9 @@
     <h1>SPES Systems</h1>
     <p class="muted">Panel de administración</p>
     <form id="loginForm">
-      <input id="email" type="email" placeholder="Correo" required autocomplete="username">
-      <input id="password" type="password" placeholder="Contraseña" required autocomplete="current-password">
+      <input id="email" type="email" maxlength="160" placeholder="Correo" required autocomplete="username">
+      <input id="password" type="password" maxlength="128" placeholder="Contraseña" required autocomplete="current-password">
+      <div id="captcha" style="margin-top:12px;min-height:65px;display:flex;justify-content:center"></div>
       <button class="btn" style="width:100%;margin-top:14px" type="submit">Entrar</button>
       <p id="loginMsg" class="msg"></p>
     </form>
@@ -109,6 +110,7 @@
 <script src="/assets/vendor/supabase-js-2.45.0.js" integrity="sha384-dGnL7r9uccC9TdSdE05clTJ6esxMU42XBQ1/BWLzKQOBi7qR1aCMRIi0LzUmexIg" crossorigin="anonymous"></script>
 <script src="/spes-ui.js"></script>
 <script src="/spes-data.js"></script>
+<script src="/spes-captcha.js"></script>
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
@@ -178,18 +180,26 @@
     const m=(msg||'').toLowerCase();
     if(m.includes('invalid login credentials')) return 'Correo o contraseña incorrectos.';
     if(m.includes('email not confirmed')) return 'Tu correo aún no está confirmado.';
+    if(m.includes('captcha')) return 'La verificación de seguridad falló o expiró. Resuélvela de nuevo.';
+    if(m.includes('rate limit')||m.includes('too many')) return 'Demasiados intentos. Espera unos minutos.';
     if(m.includes('failed to fetch')||m.includes('network')) return 'Sin conexión. Ábrelo en https://spessystems.com/admin.html';
     return msg || 'No se pudo iniciar sesión.';
   }
 
   // ===== AUTH =====
+  // Captcha Cloudflare Turnstile (lo valida Supabase Auth). Ver spes-captcha.js
+  const loginCaptcha=SpesCaptcha.mount($('captcha'),{ theme:'light', action:'admin_login' });
   $('loginForm').addEventListener('submit', async e=>{
     e.preventDefault();
-    const m=$('loginMsg'); m.textContent='Entrando…'; m.className='msg';
+    const m=$('loginMsg');
+    const captchaToken=loginCaptcha.token();
+    if(!captchaToken){ m.textContent='Completa la verificación de seguridad.'; m.className='msg err'; return; }
+    m.textContent='Entrando…'; m.className='msg';
     try{
-      const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
+      const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value, options:{ captchaToken } });
       if(error){ m.textContent=traducirAuth(error.message); m.className='msg err'; }
     }catch(err){ m.textContent=traducirAuth(err && err.message); m.className='msg err'; }
+    finally{ loginCaptcha.reset(); }   // el token de Turnstile es de un solo uso
   });
   async function cerrarSesion(){
     try{ await sb.auth.signOut({ scope:'local' }); }catch(_){ }

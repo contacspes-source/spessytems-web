@@ -128,6 +128,7 @@
     <form id="loginForm">
       <input id="email" type="email" maxlength="160" placeholder="Tu correo" required autocomplete="username">
       <input id="password" type="password" maxlength="128" placeholder="Tu contraseña" required autocomplete="current-password">
+      <div id="captcha" style="margin-top:12px;min-height:65px;display:flex;justify-content:center"></div>
       <button class="btn" style="width:100%;margin-top:14px" type="submit">Entrar</button>
       <p id="loginMsg" class="msg"></p>
     </form>
@@ -164,6 +165,7 @@
 <script src="/assets/vendor/supabase-js-2.45.0.js" integrity="sha384-dGnL7r9uccC9TdSdE05clTJ6esxMU42XBQ1/BWLzKQOBi7qR1aCMRIi0LzUmexIg" crossorigin="anonymous"></script>
 <script src="/spes-ui.js"></script>
 <script src="/spes-data.js"></script>
+<script src="/spes-captcha.js"></script>
 <script src="/portal-pos.js"></script>
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
@@ -184,13 +186,19 @@
   function formModal(o){ o=o||{}; return new Promise(res=>{ let b=''; for(const f of o.fields){ b+='<label class="flbl">'+esc(f.label)+'</label>'; if(f.type==='select'){ b+='<select id="f_'+f.key+'">'+f.options.map(op=>{const v=(typeof op==='string')?op:op.value,l=(typeof op==='string')?op:op.label;return '<option value="'+esc(v)+'" '+(String(f.value)===String(v)?'selected':'')+'>'+esc(l)+'</option>';}).join('')+'</select>'; } else if(f.type==='textarea'){ b+='<textarea id="f_'+f.key+'" rows="'+(f.rows||3)+'">'+esc(f.value||'')+'</textarea>'; } else { b+='<input id="f_'+f.key+'" type="'+(f.type||'text')+'" value="'+esc(f.value==null?'':f.value)+'">'; } } modalShell('<h3>'+esc(o.title||'')+'</h3>'+b+'<p id="f_err" class="msg err"></p><div class="mrow"><button class="btn ghost" id="f_cancel">Cancelar</button><button class="btn" id="f_save">'+esc(o.submitLabel||'Guardar')+'</button></div>'); $('f_cancel').onclick=()=>{closeModal();res(null);}; $('f_save').onclick=()=>{ const vals={}; for(const f of o.fields) vals[f.key]=$('f_'+f.key).value; for(const f of o.fields){ if(f.required&&!String(vals[f.key]).trim()){ $('f_err').textContent='Completa: '+f.label; return; } } closeModal(); res(vals); }; }); }
 
   // ===== AUTH =====
+  // Captcha Cloudflare Turnstile (lo valida Supabase Auth). Ver spes-captcha.js
+  const loginCaptcha=SpesCaptcha.mount($('captcha'),{ theme:'dark', action:'portal_login' });
   $('loginForm').addEventListener('submit', async e=>{
     e.preventDefault();
-    const m=$('loginMsg'); m.textContent='Entrando…'; m.className='msg';
+    const m=$('loginMsg');
+    const captchaToken=loginCaptcha.token();
+    if(!captchaToken){ m.textContent='Completa la verificación de seguridad.'; m.className='msg err'; return; }
+    m.textContent='Entrando…'; m.className='msg';
     try{
-      const { error }=await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
-      if(error){ const t=(error.message||'').toLowerCase(); m.textContent=t.includes('invalid login')?'Correo o contraseña incorrectos.':(t.includes('fetch')||t.includes('network')?'Sin conexión. Inténtalo de nuevo.':error.message); m.className='msg err'; }
+      const { error }=await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value, options:{ captchaToken } });
+      if(error){ const t=(error.message||'').toLowerCase(); m.textContent=t.includes('invalid login')?'Correo o contraseña incorrectos.':(t.includes('captcha')?'La verificación de seguridad falló o expiró. Resuélvela de nuevo.':(t.includes('rate limit')||t.includes('too many')?'Demasiados intentos. Espera unos minutos.':(t.includes('fetch')||t.includes('network')?'Sin conexión. Inténtalo de nuevo.':error.message))); m.className='msg err'; }
     }catch(err){ m.textContent='No se pudo iniciar sesión.'; m.className='msg err'; }
+    finally{ loginCaptcha.reset(); }   // el token de Turnstile es de un solo uso
   });
   $('googleBtn').addEventListener('click', async ()=>{
     const m=$('loginMsg'); m.textContent='Redirigiendo a Google…'; m.className='msg';
