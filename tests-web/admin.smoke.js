@@ -31,7 +31,10 @@ window.Image = function(){ const i={}; setTimeout(()=>{ if(i.onerror) i.onerror(
 `
 const pdfStub = `window.jspdf={jsPDF:function(){return{setFontSize(){},setFont(){},text(){},setTextColor(){},line(){},setDrawColor(){},setLineWidth(){},addImage(){},save(f){window.__pdfSaved=f}}}};`
 html = html
-  .replace(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase[^"]*"><\/script>/, '<script>' + stub + pdfStub + '</script>')
+  // supabase-js: antes del CDN, ahora auto-alojada en /assets/vendor con SRI (nov 2026).
+  .replace(/<script src="(?:https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase[^"]*|\/assets\/vendor\/supabase-js[^"]*)"[^>]*><\/script>/, () => '<script>' + stub + pdfStub + '</script>')
+  // Captcha (Turnstile): stub que siempre entrega token; jsdom no carga Cloudflare.
+  .replace('<script src="/spes-captcha.js"></script>', '<script>window.SpesCaptcha={mount:function(){return{token:function(){return "test-token"},reset:function(){},failed:function(){return false}}},isCaptchaError:function(m){return /captcha/i.test(String(m||""))}};</script>')
   .replace('<script src="/spes-ui.js"></script>', () => '<script>' + spesUi.replace(/<\/script>/g, '<\\/script>') + '</script>')
   .replace('<script src="/spes-data.js"></script>', () => '<script>' + spesData.replace(/<\/script>/g, '<\\/script>') + '</script>')
 
