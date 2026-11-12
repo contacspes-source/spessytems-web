@@ -201,35 +201,15 @@ tailwind.config = {
         <span>✓ Demo gratis con tus productos</span><span>✓ Sigues cobrando sin internet</span><span>✓ Si truena la compu, no pierdes nada</span>
       </div>
     </div>
-    <!-- Fase 5 (Bloque A): el hero muestra el POS, no el logo (regla pendiente de Fase 1). -->
+    <!-- Hero: logo S con tilt 3D (decisión de Jorge, nov-2026). -->
     <div class="relative flex justify-center" style="perspective:1000px;">
       <div class="absolute w-[26rem] h-[26rem] rounded-full border border-white/10 ring-anim hidden sm:block"></div>
       <div class="absolute w-[20rem] h-[20rem] rounded-full border border-dashed border-white/10 ring-anim" style="animation-direction:reverse"></div>
-      <div id="tiltLogo" class="relative will-change-transform w-full max-w-md" style="transition:transform .15s ease-out;">
-        <div class="relative rounded-2xl overflow-hidden ring-1 ring-white/10 border border-white/15 bg-[#0c0c0c]" style="box-shadow:0 0 72px -25px rgba(255,255,255,.32);">
-          <div class="flex items-center gap-2 px-4 py-2.5 border-b border-white/10 bg-white/[0.03]">
-            <span class="w-3 h-3 rounded-full bg-white/20"></span><span class="w-3 h-3 rounded-full bg-white/20"></span><span class="w-3 h-3 rounded-full bg-white/20"></span>
-            <span class="ml-3 text-xs text-white/40 mono">SPES POS — Venta</span>
-          </div>
-          <div class="pos pos-bg text-left p-4 text-[12px]">
-            <div class="space-y-1.5">
-              <div class="flex justify-between items-center rounded-lg border pos-bd pos-panel px-3 py-2"><span>Jitomate <span class="pos-muted">· 1.245 kg</span></span><span class="mono font-bold">$28.95</span></div>
-              <div class="flex justify-between items-center rounded-lg border pos-bd pos-panel px-3 py-2"><span>Coca-Cola 600 ml <span class="pos-muted">· 2 pz</span></span><span class="mono font-bold">$42.00</span></div>
-              <div class="flex justify-between items-center rounded-lg border pos-bd pos-panel px-3 py-2"><span>Manzana Gala <span class="pos-muted">· 2.010 kg</span></span><span class="mono font-bold">$116.55</span></div>
-            </div>
-            <div class="mt-2.5 rounded-lg border pos-bd pos-chip px-3 py-2 flex justify-between items-center"><span class="pos-muted">✓ Mayoreo aplicado</span><span class="mono font-bold">Ahorro: $8.75</span></div>
-            <div class="mt-2.5 rounded-lg border pos-bd pos-accent px-3 py-2.5 flex justify-between items-center">
-              <span class="font-semibold">Total</span><span class="mono font-extrabold text-xl">$187.50</span>
-            </div>
-            <div class="mt-2.5 grid grid-cols-3 gap-2 text-center text-[11px]">
-              <div class="rounded-lg border pos-bd pos-panel py-2 font-semibold">Efectivo</div>
-              <div class="rounded-lg border pos-bd pos-panel py-2 font-semibold">Tarjeta</div>
-              <div class="rounded-lg border pos-bd pos-panel py-2 font-semibold">Mixto</div>
-            </div>
-          </div>
-          <div id="tiltGlare" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-200 rounded-2xl"></div>
+      <div id="tiltLogo" class="relative will-change-transform w-72 sm:w-96" style="transition:transform .15s ease-out;">
+        <div class="relative rounded-[2rem] overflow-hidden ring-1 ring-white/10" style="box-shadow:0 0 90px -25px rgba(255,255,255,.35);">
+          <img src="assets/spes-logo.jpeg" alt="Logo de SPES Systems" class="w-full h-auto block" width="1254" height="1254">
+          <div id="tiltGlare" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-200 rounded-[2rem]"></div>
         </div>
-        <span class="absolute -bottom-2 right-4 mono text-[10px] text-white/60 border border-white/15 rounded-md px-2 py-1 bg-[#2b2b2b]/80">* Recreación ilustrativa</span>
       </div>
     </div>
   </div>
@@ -456,8 +436,8 @@ tailwind.config = {
       <div class="card fade-up p-8 rounded-2xl border border-white/10 flex flex-col">
         <h3 class="text-lg font-bold">Básico</h3><p class="text-white/50 text-sm mt-1">Para una tienda que arranca</p>
         <div class="mt-5 mb-6">
-          <span class="text-4xl font-extrabold" data-plan-price="basico">$409</span><span class="text-white/50 text-sm"> /mes</span>
-          <div class="text-xs text-white/45 mt-1" data-plan-annual="basico">o $4,090/año · ahorra 2 meses</div>
+          <span class="text-4xl font-extrabold" data-plan-price="basico">$399</span><span class="text-white/50 text-sm"> /mes</span>
+          <div class="text-xs text-white/45 mt-1" data-plan-annual="basico">o $3,990/año · ahorra 2 meses</div>
         </div>
         <ul class="space-y-2.5 text-sm text-white/65 flex-1"><li>✓ 1 sucursal, 1–2 cajas</li><li>✓ Ventas e inventario completos</li><li>✓ Reportes esenciales</li><li>✓ Soporte en español</li></ul>
         <a href="#contacto" class="mt-7 text-center border border-white/25 rounded-full py-2.5 font-semibold hover:bg-white/10 transition">Empezar</a>
@@ -549,7 +529,7 @@ tailwind.config = {
       </details>
       <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
         <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Cuánto cuesta?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
-        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">Los planes van desde $409 al mes — puedes verlos completos en la sección de planes. Los primeros 10 negocios entran con precio fundador: 2 meses gratis y precio congelado de por vida.</div>
+        <div class="faq-body px-5 pb-4 text-white/60 text-sm leading-relaxed">Los planes van desde $399 al mes — puedes verlos completos en la sección de planes. Los primeros 10 negocios entran con precio fundador: 2 meses gratis y precio congelado de por vida.</div>
       </details>
       <details class="group faq-up border border-white/10 rounded-xl bg-white/[0.02]">
         <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-4 font-semibold hover:text-white transition">¿Ofrecen soporte?<span class="faq-ic w-7 h-7 rounded-full border border-white/20 flex items-center justify-center text-smoke text-lg leading-none shrink-0" aria-hidden="true">+</span></summary>
@@ -566,7 +546,7 @@ tailwind.config = {
     {"@type":"Question","name":"¿Para qué tipo de negocios sirve SPES POS?","acceptedAnswer":{"@type":"Answer","text":"Está hecho para tiendas, abarrotes y minisúper. Otros giros, como restaurantes y gimnasios, llegarán próximamente como ediciones del mismo sistema."}},
     {"@type":"Question","name":"¿Funciona sin internet?","acceptedAnswer":{"@type":"Answer","text":"Sí, al cien por ciento. SPES POS corre en tu computadora: puedes vender aunque se caiga el internet, y tu información se respalda automáticamente en la nube cuando hay conexión."}},
     {"@type":"Question","name":"¿Necesito comprar hardware nuevo?","acceptedAnswer":{"@type":"Answer","text":"No necesariamente. Funciona con el equipo que ya tengas, y si quieres te armamos un kit completo con impresora, lector y cajón de dinero."}},
-    {"@type":"Question","name":"¿Cuánto cuesta?","acceptedAnswer":{"@type":"Answer","text":"Los planes van desde $409 MXN al mes. Los primeros 10 negocios entran con precio fundador: 2 meses gratis y precio congelado de por vida."}},
+    {"@type":"Question","name":"¿Cuánto cuesta?","acceptedAnswer":{"@type":"Answer","text":"Los planes van desde $399 MXN al mes. Los primeros 10 negocios entran con precio fundador: 2 meses gratis y precio congelado de por vida."}},
     {"@type":"Question","name":"¿Ofrecen soporte?","acceptedAnswer":{"@type":"Answer","text":"Sí, soporte en español y directo con nosotros: instalación, uso y cualquier duda del día a día."}},
     {"@type":"Question","name":"¿Cómo puedo probarlo?","acceptedAnswer":{"@type":"Answer","text":"Agenda una demo gratis: te mostramos SPES POS con tus propios productos. Escríbenos desde el formulario y te respondemos en menos de 24 horas."}}
   ]}
