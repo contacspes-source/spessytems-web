@@ -253,7 +253,12 @@
     // Fix 12-jul-2026: PostgREST corta en 1000 filas; las consultas que pueden
     // crecer (catálogo, stock, documentos, ventas del mes) se paginan con
     // SpesData.fetchAll (envuelto para conservar la forma {data}).
-    const all=(q,o)=>SpesData.fetchAll(q,o).then(rows=>({data:rows}));
+    // Fix 13-nov-2026: una consulta que falla (p. ej. timeout del servidor) ya
+    // NO deja todo el portal en blanco: esa sección queda vacía, el resto se
+    // pinta y se avisa arriba. Antes Promise.all tiraba TODA la carga.
+    ST._loadErrors=[];
+    const fail=(e)=>({ data:[], error:e||{message:'error'} }); // se registra abajo, una sola vez
+    const all=(q,o)=>SpesData.fetchAll(q,o).then(rows=>({data:rows}),fail);
     try{
       const [biz,sub,pg,tk,an,ve,kb,pl,sa,pr,fl,st,docs,pts,mov,msa]=await Promise.all([
         sbc.from('businesses').select('*').eq('id',uid).maybeSingle(),
@@ -314,7 +319,9 @@
       // Mermas = ajustes NEGATIVOS de inventario (las ventas descuentan aparte).
       ST.MERMAS=(mov.data||[]).map(r=>r.payload||{}).filter(p=>p.type==='adjust'&&Number(p.qty_change)<0);
       ST.MONTH_SALES=(msa.data||[]).filter(s=>s.status!=='cancelled');
-    }catch(e){ /* se maneja en render */ }
+      [biz,sub,pg,tk,an,ve,kb,pl,sa,pr,fl,st,docs,pts,mov,msa].forEach(r=>{ if(r&&r.error) ST._loadErrors.push(r.error.message||String(r.error)); });
+    }catch(e){ ST._loadErrors.push((e&&e.message)||String(e)); }
+    if(ST._loadErrors.length) console.warn('[portal] secciones que no cargaron:', ST._loadErrors);
   }
   const planNombre=cl=>{ const p=ST.PLANES.find(x=>x.clave===cl); return p?p.nombre:(cl||'—'); };
   const precioSub=()=>{ const s=ST.sub; if(!s) return 0; if(s.precio_mxn!=null) return Number(s.precio_mxn); const p=ST.PLANES.find(x=>x.clave===s.plan); return p?Number(p.precio_mxn):0; };
@@ -355,6 +362,7 @@
   function posCtx(){ return { ST, sb, sbc, esc, money, modalShell, closeModal }; }
   function render(){
     const c=$('content');
+    setTimeout(()=>{ if(ST._loadErrors&&ST._loadErrors.length&&!c.querySelector('.load-warn')) c.insertAdjacentHTML('afterbegin','<div class="load-warn state" style="padding:10px 14px;margin-bottom:14px;text-align:left;border-color:var(--warn-fg);color:var(--warn-fg)">Algunos datos no se pudieron cargar (el servidor tardó demasiado). Lo demás está al día. <button class="btn ghost sm" onclick="location.reload()" style="margin-left:8px">Reintentar</button></div>'); },0);
     if(!ST.biz && ST.tab!=='soporte' && ST.tab!=='ayuda' && ST.tab!=='novedades'){
       // sin ficha de negocio (p.ej. cuenta sin businesses)
     }
