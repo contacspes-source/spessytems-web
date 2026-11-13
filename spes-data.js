@@ -42,13 +42,23 @@
   }
 
   /* ---------- Cliente Supabase (control plane via schema 'control') ----------
-     opts: { detectSessionInUrl?:bool, flowType?:'pkce' }  (portal usa ambos) */
+     opts: { detectSessionInUrl?:bool, flowType?:'pkce', storageKey?:string }
+     storageKey (nov-2026): admin y portal viven en el MISMO dominio, así que
+     compartían la sesión guardada (sb-<ref>-auth-token). Con una llave propia
+     por app cada una tiene su sesión: puedes tener el panel abierto con tu
+     cuenta de admin y el portal con la cuenta de un cliente, sin pisarse. */
   function client(url,key,opts){
     const o=opts||{};
     const auth={ persistSession:true, autoRefreshToken:true, detectSessionInUrl:!!o.detectSessionInUrl, storage:safeStorage };
     if(o.flowType) auth.flowType=o.flowType;
+    if(o.storageKey) auth.storageKey=o.storageKey;
     const sb=window.supabase.createClient(url,key,{ auth });
     return { sb, sbc: sb.schema('control') };
+  }
+
+  /** Borra SOLO la sesión guardada de esta app (y su verificador PKCE). */
+  function clearSession(storageKey){
+    ['', '-code-verifier', '-user'].forEach(s=>{ try{ safeStorage.removeItem(storageKey+s); }catch(_){ } });
   }
 
   /* ---------- jsPDF bajo demanda (no se carga hasta el primer recibo) ---------- */
@@ -140,5 +150,5 @@
     return folio;
   }
 
-  window.SpesData={ safeStorage, esc, money, daysLeft, fdate, fdatetime, fetchAll, client, ensureJsPDF, recibo };
+  window.SpesData={ safeStorage, esc, money, daysLeft, fdate, fdatetime, fetchAll, client, clearSession, ensureJsPDF, recibo };
 })();

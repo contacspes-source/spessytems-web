@@ -9,6 +9,8 @@ on:
       - 'spes-ui.js'
       - 'spes-ui.css'
       - 'spes-data.js'
+      - 'portal-pos.js'
+      - 'portal-admin.js'
       - 'tests-web/**'
   workflow_dispatch:
 
@@ -23,6 +25,6 @@ jobs:
       - name: Instalar dependencias de la suite
         working-directory: tests-web
         run: npm ci
-      - name: Smoke admin + portal (jsdom)
+      - name: Smoke admin + portal + acceso (jsdom)
         working-directory: tests-web
         run: npm test

@@ -167,6 +167,7 @@
 <script src="/spes-data.js"></script>
 <script src="/spes-captcha.js"></script>
 <script src="/portal-pos.js"></script>
+<script src="/portal-admin.js"></script>
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
@@ -174,7 +175,11 @@
   // Fase 4 (Bloque A): helpers y cliente centralizados en spes-data.js (deuda #5).
   const { esc, money, daysLeft, fdate } = SpesData;
   const fdt = SpesData.fdatetime;
-  const { sb, sbc } = SpesData.client(SB_URL, SB_KEY, { detectSessionInUrl:true, flowType:'pkce' }); // portal: OAuth Google
+  // Sesión PROPIA del portal (nov-2026): llave distinta a la del panel admin,
+  // así el portal puede abrir la cuenta de un cliente aunque en el mismo
+  // navegador esté abierto el panel con la cuenta de administrador.
+  const AUTH_KEY='spes-portal-auth';
+  const { sb, sbc } = SpesData.client(SB_URL, SB_KEY, { detectSessionInUrl:true, flowType:'pkce', storageKey:AUTH_KEY }); // portal: OAuth Google
 
   const $=id=>document.getElementById(id);
 
@@ -207,7 +212,12 @@
       if(error){ m.textContent='No se pudo conectar con Google: '+error.message; m.className='msg err'; }
     }catch(_){ m.textContent='No se pudo conectar con Google.'; m.className='msg err'; }
   });
-  async function cerrarSesion(){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){ } try{ Object.keys(localStorage).filter(k=>k.indexOf('sb-')===0).forEach(k=>localStorage.removeItem(k)); }catch(_){ } showLogin(); }
+  async function cerrarSesion(){
+    try{ await sb.auth.signOut({scope:'local'}); }catch(_){ }
+    SpesData.clearSession(AUTH_KEY); // solo la del portal: el panel admin sigue abierto
+    try{ Object.keys(localStorage).filter(k=>/^sb-[a-z0-9]+-auth-token/.test(k)).forEach(k=>localStorage.removeItem(k)); }catch(_){ } // llave vieja compartida
+    resetState(); showLogin();
+  }
   $('logout').addEventListener('click', cerrarSesion);
   // Fix 12-jul-2026: TOKEN_REFRESHED (cada ~1 h) y los SIGNED_IN repetidos al
   // volver a la pestaña NO deben re-arrancar la app (se sentía como recarga
@@ -219,10 +229,16 @@
   // ===== STATE =====
   const ST={ uid:null, email:'', tab:'inicio', biz:null, sub:null, PAGOS:[], TICKETS:[], TMSGS:[], ANUNCIOS:[], VERSIONES:[], KB:[], PLANES:[], SALES:[], PRODUCTS:[], STOCK:{}, FLEET:[], ticketId:null,
     // Bloque P (Fase 2): espejo de lectura de los dominios que sincroniza el Bloque C (ADR-092).
-    PURCHASES:[], RETURNS:[], CASHS:[], CASHMOVS:[], EGRESOS:[], EXPENSES:[], EMPLOYEES:[], CUSTOMERS:[], SUPPLIERS:{}, CATEGORIES:{}, POINTS:{}, MERMAS:[], MONTH_SALES:[], repPeriod:'mes' };
+    PURCHASES:[], RETURNS:[], CASHS:[], CASHMOVS:[], EGRESOS:[], EXPENSES:[], EMPLOYEES:[], CUSTOMERS:[], SUPPLIERS:{}, CATEGORIES:{}, POINTS:{}, MERMAS:[], MONTH_SALES:[], repPeriod:'mes',
+    CATS_ROWS:[], SUPPLIERS_ROWS:[], UNITS:[], BARCODES:[] };
+  // Cambio de cuenta (nov-2026): al salir/entrar con OTRA cuenta se vacía todo el
+  // estado en memoria para que jamás se mezclen datos de dos negocios.
+  const ST0=JSON.stringify(ST);
+  function resetState(){ const z=JSON.parse(ST0); Object.keys(ST).forEach(k=>{ delete ST[k]; }); Object.assign(ST,z); }
   const TABS=[ ['inicio','Inicio'],['ventas','Ventas'],['inventario','Inventario'],['suscripcion','Mi suscripción'],['recibos','Recibos'],['soporte','Soporte'],['novedades','Novedades'],['ayuda','Ayuda'] ];
 
   async function enter(session){
+    if(ST.uid && ST.uid!==session.user.id) resetState();
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     ST.uid=session.user.id; ST.email=session.user.email; $('who').textContent=session.user.email;
     await loadPortal();
@@ -255,8 +271,8 @@
         // Bloque P: documentos del Bloque C materializados en records (espejo de lectura).
         all(()=>sb.from('records').select('table_name,record_id,data')
           .eq('account_id',uid)
-          .in('table_name',['purchase_orders','returns','cash_sessions','cash_movements','egresos','expenses','employees','customers','suppliers','categories'])
-          .order('updated_at',{ascending:false}).order('record_id'),{max:10000}),
+          .in('table_name',['purchase_orders','returns','cash_sessions','cash_movements','egresos','expenses','employees','customers','suppliers','categories','units','product_barcodes'])
+          .order('updated_at',{ascending:false}).order('record_id'),{max:30000}),
         // Saldo de lealtad = suma del log en el servidor (C1/C3). El campo
         // loyalty_points dentro de records.customers quedó obsoleto: NO usarlo.
         all(()=>sb.rpc('sync_loyalty_levels').order('customer_id')),
@@ -268,6 +284,8 @@
           .gte('created_at',monthStart).order('created_at',{ascending:false}).order('id'),{max:5000})
       ]);
       ST.biz=biz.data||null; ST.sub=sub.data||null;
+      // Que siempre sea obvio QUÉ negocio está abierto (evita confundir cuentas).
+      $('who').textContent=(ST.biz&&ST.biz.business_name?ST.biz.business_name+' · ':'')+ST.email;
       ST.PAGOS=(pg.data||[]).map(x=>({...x,created_at:x.created_at||x.fecha}));
       ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.VERSIONES=ve.data||[]; ST.KB=kb.data||[]; ST.PLANES=pl.data||[];
       ST.SALES=sa.data||[];
@@ -289,6 +307,9 @@
       ST.CUSTOMERS=alive(byTable.customers).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
       ST.SUPPLIERS={}; alive(byTable.suppliers).forEach(s=>{ ST.SUPPLIERS[s.id]=s.name||'—'; });
       ST.CATEGORIES={}; alive(byTable.categories).forEach(x=>{ ST.CATEGORIES[x.id]=x.name||'—'; });
+      // ADR-097 (administración desde la web): registros completos para editar.
+      ST.CATS_ROWS=alive(byTable.categories); ST.SUPPLIERS_ROWS=alive(byTable.suppliers);
+      ST.UNITS=alive(byTable.units); ST.BARCODES=alive(byTable.product_barcodes);
       ST.POINTS={}; (pts.data||[]).forEach(x=>{ ST.POINTS[x.customer_id]=Number(x.points)||0; });
       // Mermas = ajustes NEGATIVOS de inventario (las ventas descuentan aparte).
       ST.MERMAS=(mov.data||[]).map(r=>r.payload||{}).filter(p=>p.type==='adjust'&&Number(p.qty_change)<0);
@@ -300,12 +321,12 @@
 
   const NAVP=[
     { items:[{id:'inicio',label:'Inicio'}] },
-    { group:'Mi negocio', items:[{id:'transacciones',label:'Transacciones'},{id:'inventario',label:'Inventario y artículos'},{id:'compras',label:'Compras'},{id:'devoluciones',label:'Devoluciones'},{id:'clientes',label:'Clientes'}] },
+    { group:'Mi negocio', items:[{id:'transacciones',label:'Transacciones'},{id:'inventario',label:'Inventario y artículos'},{id:'categorias',label:'Categorías'},{id:'proveedores',label:'Proveedores'},{id:'compras',label:'Compras'},{id:'devoluciones',label:'Devoluciones'},{id:'clientes',label:'Clientes'}] },
     { group:'Operación', items:[{id:'caja',label:'Caja'},{id:'empleados',label:'Empleados'},{id:'mermas',label:'Mermas y salidas'},{id:'reportes',label:'Reportes'},{id:'dispositivos',label:'Dispositivos'}] },
     { group:'Cuenta', items:[{id:'suscripcion',label:'Mi suscripción'},{id:'recibos',label:'Recibos'},{id:'ajustes',label:'Configuración'}] },
     { group:'Soporte', items:[{id:'soporte',label:'Soporte'},{id:'novedades',label:'Novedades'},{id:'ayuda',label:'Ayuda'}] }
   ];
-  const PNAVIC={ inicio:'home', transacciones:'chart', ventas:'chart', inventario:'box', compras:'truck', devoluciones:'file', clientes:'users', caja:'card', empleados:'user', mermas:'activity', reportes:'dashboard', dispositivos:'server', suscripcion:'card', recibos:'receipt', ajustes:'gear', soporte:'support', novedades:'bell', ayuda:'help' };
+  const PNAVIC={ categorias:'tag', proveedores:'truck', inicio:'home', transacciones:'chart', ventas:'chart', inventario:'box', compras:'truck', devoluciones:'file', clientes:'users', caja:'card', empleados:'user', mermas:'activity', reportes:'dashboard', dispositivos:'server', suscripcion:'card', recibos:'receipt', ajustes:'gear', soporte:'support', novedades:'bell', ayuda:'help' };
   const PGRUPIC={ 'Mi negocio':'chart', 'Operación':'activity', 'Cuenta':'card', 'Soporte':'support' };
   const PLABEL={}; NAVP.forEach(g=>g.items.forEach(it=>{ PLABEL[it.id]=it.label; }));
   function renderTabs(){
@@ -331,7 +352,7 @@
   const sidebarCtl = SpesUI.initSidebar($('aside'), { collapseBtn:$('collapseBtn'), menuBtn:$('menuBtn'), backdrop:$('backdrop') });
 
   /** Contexto para el espejo del POS (portal-pos.js). */
-  function posCtx(){ return { ST, sb, esc, money, modalShell, closeModal }; }
+  function posCtx(){ return { ST, sb, sbc, esc, money, modalShell, closeModal }; }
   function render(){
     const c=$('content');
     if(!ST.biz && ST.tab!=='soporte' && ST.tab!=='ayuda' && ST.tab!=='novedades'){
@@ -344,9 +365,11 @@
       case 'inventario': return PosMirror.inventario(c, posCtx());
       case 'compras': return rCompras(c);
       case 'devoluciones': return rDevoluciones(c);
-      case 'clientes': return rClientes(c);
+      case 'categorias': return PortalAdmin.categorias(c, posCtx());
+      case 'proveedores': return PortalAdmin.proveedores(c, posCtx());
+      case 'clientes': return PortalAdmin.clientes(c, posCtx());
       case 'caja': return PosMirror.caja(c, posCtx(), rCaja);
-      case 'empleados': return rEmpleados(c);
+      case 'empleados': return PortalAdmin.empleados(c, posCtx());
       case 'mermas': return rMermas(c);
       case 'reportes': return rReportes(c);
       case 'dispositivos': return rDispositivos(c);
@@ -582,21 +605,7 @@
   }
 
   // ===== CLIENTES =====
-  function rClientes(c){
-    const act=ST.CUSTOMERS.filter(x=>x.is_active!==0);
-    const conPts=act.filter(x=>(ST.POINTS[x.id]||0)>0);
-    const totPts=act.reduce((a,x)=>a+(ST.POINTS[x.id]||0),0);
-    c.innerHTML=`<h2>Clientes</h2><p class="sub">Tu directorio y los puntos de lealtad de cada cliente.</p>
-      <div class="cards">
-        <div class="card"><div class="n">${act.length}</div><div class="l">Clientes activos</div></div>
-        <div class="card"><div class="n">${conPts.length}</div><div class="l">Con puntos</div></div>
-        <div class="card"><div class="n">${totPts.toLocaleString('es-MX')}</div><div class="l">Puntos en circulación</div></div>
-      </div>`;
-    if(!ST.CUSTOMERS.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('clientes')); return; }
-    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Puntos</th><th>Estado</th></tr></thead><tbody>';
-    for(const x of ST.CUSTOMERS.slice(0,200)) h+=`<tr><td>${esc(x.name||'—')}</td><td class="mono muted">${esc(x.phone||'—')}</td><td><strong>${(ST.POINTS[x.id]||0).toLocaleString('es-MX')}</strong></td><td>${x.is_active===0?'<span class="tag t-neutral">inactivo</span>':'<span class="tag t-ok">activo</span>'}</td></tr>`;
-    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div><p class="muted" style="margin-top:8px">Los puntos se calculan en el servidor sumando cada movimiento de lealtad de todas tus cajas.</p>');
-  }
+  // rClientes / rEmpleados: reemplazados por PortalAdmin.clientes / .empleados (ADR-097, editables).
 
   // ===== CAJA =====
   function rCaja(c){
@@ -634,20 +643,6 @@
   }
 
   // ===== EMPLEADOS =====
-  function rEmpleados(c){
-    const act=ST.EMPLOYEES.filter(x=>x.is_active!==0);
-    c.innerHTML=`<h2>Empleados</h2><p class="sub">Tu equipo, tal como está dado de alta en el POS.</p>
-      <div class="cards">
-        <div class="card"><div class="n">${act.length}</div><div class="l">Activos</div></div>
-        <div class="card"><div class="n">${ST.EMPLOYEES.length}</div><div class="l">Total</div></div>
-        <div class="card"><div class="n">${ST.FLEET.length}</div><div class="l">Cajas conectadas</div></div>
-      </div>`;
-    if(!ST.EMPLOYEES.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div>'+emptySync('empleados')); return; }
-    let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>';
-    for(const e of ST.EMPLOYEES) h+=`<tr><td>${esc(e.full_name||'—')}</td><td class="mono muted">${esc(e.username||'—')}</td><td>${esc((e.role||'—').toLowerCase())}</td><td class="mono muted">${esc(e.phone||'—')}</td><td>${e.is_active===0?'<span class="tag t-neutral">inactivo</span>':'<span class="tag t-ok">activo</span>'}</td></tr>`;
-    c.insertAdjacentHTML('beforeend',h+'</tbody></table></div><p class="muted" style="margin-top:8px">Por seguridad, los PIN de acceso nunca salen de cada caja.</p>');
-  }
-
   // ===== MERMAS Y SALIDAS =====
   function rMermas(c){
     const pname=id=>{ const p=ST.PRODUCTS.find(x=>x.id===id); return p?(p.name||'—'):'—'; };
@@ -1095,7 +1090,8 @@
   function setPortalTheme(t){ try{ localStorage.setItem('spes.portal.theme',t); }catch(_){ } if(t==='white') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t); }
   function rAjustes(c){
     const cur=portalTheme();
-    c.innerHTML=`<h2>Configuración</h2><p class="sub">Personaliza tu portal.</p>
+    c.innerHTML=`<h2>Configuración</h2><p class="sub">Los datos de tu negocio y cómo se ve tu portal.</p>
+      ${PortalAdmin.negocioCard(posCtx())}
       <div class="card" style="max-width:560px">
         <div class="sechead"><h3 style="font-size:14px;font-weight:800">Tema</h3></div>
         <p class="muted" style="margin-bottom:12px;font-size:13px">El color de fondo del portal, igual que en tu punto de venta: Blanco, Gris u Oscuro.</p>
@@ -1110,6 +1106,7 @@
         <p class="muted" style="margin-top:12px;font-size:12px">Tu preferencia se guarda en este navegador.</p>
       </div>`;
     c.querySelectorAll('[data-theme-opt]').forEach(b=>b.addEventListener('click',()=>{ setPortalTheme(b.dataset.themeOpt); rAjustes(c); }));
+    PortalAdmin.bindNegocio(posCtx(), ()=>{ rAjustes(c); $('who').textContent=(ST.biz&&ST.biz.business_name?ST.biz.business_name+' · ':'')+ST.email; });
   }
 
   // ===== DISPOSITIVOS =====

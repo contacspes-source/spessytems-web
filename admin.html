@@ -120,7 +120,10 @@
 
   // Fase 4 (Bloque A): helpers y cliente centralizados en spes-data.js (deuda #5).
   const { esc, money, daysLeft, fdate, fdatetime } = SpesData;
-  const { sb, sbc } = SpesData.client(SB_URL, SB_KEY); // admin: sin detectSessionInUrl
+  // Sesión PROPIA del panel (nov-2026): llave distinta a la del portal para que
+  // ambos puedan estar abiertos en el mismo navegador con cuentas diferentes.
+  const AUTH_KEY='spes-admin-auth';
+  const { sb, sbc } = SpesData.client(SB_URL, SB_KEY, { storageKey:AUTH_KEY }); // admin: sin detectSessionInUrl
 
   const $ = id => document.getElementById(id);
   function addMonths(d,n){ const x=new Date(d); x.setMonth(x.getMonth()+n); return x; }
@@ -201,12 +204,15 @@
     }catch(err){ m.textContent=traducirAuth(err && err.message); m.className='msg err'; }
     finally{ loginCaptcha.reset(); }   // el token de Turnstile es de un solo uso
   });
-  async function cerrarSesion(){
+  async function cerrarSesion(msg){
     try{ await sb.auth.signOut({ scope:'local' }); }catch(_){ }
-    try{ Object.keys(window.localStorage).filter(k=>k.indexOf('sb-')===0).forEach(k=>window.localStorage.removeItem(k)); }catch(_){ }
-    showLogin();
+    // Solo la sesión del panel: la del portal (otra llave) no se toca.
+    SpesData.clearSession(AUTH_KEY);
+    // Limpieza única de la llave vieja compartida (antes de nov-2026).
+    try{ Object.keys(window.localStorage).filter(k=>/^sb-[a-z0-9]+-auth-token/.test(k)).forEach(k=>window.localStorage.removeItem(k)); }catch(_){ }
+    showLogin(msg);
   }
-  $('logout').addEventListener('click', cerrarSesion);
+  $('logout').addEventListener('click', ()=>cerrarSesion());
   $('menuBtn').addEventListener('click', ()=> $('aside').classList.toggle('open'));
 
   sb.auth.onAuthStateChange((event, session)=>{
@@ -227,7 +233,11 @@
     }catch(_){ await cerrarSesion(); }
   })();
 
-  function showLogin(){ $('app').classList.add('hidden'); $('login').classList.remove('hidden'); }
+  function showLogin(msg){
+    $('app').classList.add('hidden'); $('login').classList.remove('hidden');
+    $('content').innerHTML=''; // nada del panel queda en pantalla
+    if(msg){ const m=$('loginMsg'); m.textContent=msg; m.className='msg err'; }
+  }
 
   // ===== STATE =====
   const ST = { view:'dashboard', clienteId:null, param:null, isPrincipal:false, email:'',
@@ -274,20 +284,32 @@
   const sidebarCtl = SpesUI.initSidebar($('aside'), { collapseBtn:$('collapseBtn'), menuBtn:$('menuBtn'), backdrop:$('backdrop') });
 
   // ===== BOOT =====
+  // Acceso blindado (nov-2026): el panel NO se muestra hasta que el SERVIDOR
+  // confirma que la cuenta está dada de alta en control.admins (is_admin()).
+  // Si no lo está, se cierra la sesión al instante: una cuenta normal (de
+  // cliente o recién registrada) ni siquiera ve el menú. Los datos ya estaban
+  // protegidos por RLS; esto cierra también la puerta visual.
+  let _booting=false;
   async function showApp(session){
-    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
-    ST.email = session.user.email; ST.uid = session.user.id; $('who').textContent = session.user.email;
-    $('na-email').textContent = session.user.email;
-    let isAdmin=false;
-    try{ const { data:a } = await sb.rpc('is_admin'); isAdmin=!!a; }catch(_){ }
-    try{ const { data:p } = await sb.rpc('is_principal_admin'); ST.isPrincipal=!!p; }catch(_){ }
-    $('notadmin').classList.toggle('hidden', isAdmin);
-    $('content').classList.toggle('hidden', !isAdmin);
-    $('aside').style.visibility = isAdmin?'visible':'hidden';
-    if(!isAdmin) return;
-    showSkeleton();
-    await loadAll();
-    router.handle();
+    if(_booting) return; _booting=true;
+    try{
+      let isAdmin=false;
+      try{ const { data:a, error } = await sb.rpc('is_admin'); isAdmin=!error && a===true; }catch(_){ isAdmin=false; }
+      if(!isAdmin){
+        await cerrarSesion('Esta cuenta no tiene acceso al panel de administración. Solo entran las cuentas dadas de alta por el administrador principal.');
+        return;
+      }
+      try{ const { data:p } = await sb.rpc('is_principal_admin'); ST.isPrincipal=p===true; }catch(_){ ST.isPrincipal=false; }
+      $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+      ST.email = session.user.email; ST.uid = session.user.id; $('who').textContent = session.user.email;
+      $('na-email').textContent = session.user.email;
+      $('notadmin').classList.add('hidden');
+      $('content').classList.remove('hidden');
+      $('aside').style.visibility = 'visible';
+      showSkeleton();
+      await loadAll();
+      router.handle();
+    } finally { _booting=false; }
   }
 
   async function loadAll(){
