@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /manuales/
 
 Sitemap: https://spessystems.com/sitemap.xml
