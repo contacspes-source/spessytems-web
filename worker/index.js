@@ -1,5 +1,16 @@
 /**
- * Guardia de los manuales (/manuales/*) — Cloudflare Pages Functions.
+ * Worker de spessystems.com (Cloudflare Workers + Static Assets) — nov-2026.
+ *
+ * El sitio es estático (lo sirve env.ASSETS). Este Worker solo corre PRIMERO
+ * para /manuales/* (ver run_worker_first en wrangler.jsonc) y aplica la
+ * guardia de los manuales; todo lo demás va directo a los archivos.
+ *
+ * Antes la guardia vivía en functions/manuales/_middleware.js (formato Pages
+ * Functions), pero el proyecto se despliega con Workers Builds y wrangler
+ * rechazaba el build al ver la carpeta functions/ → los despliegues fallaban.
+ */
+/**
+ * Guardia de los manuales (/manuales/*).
  *
  * Los manuales de SPES son SOLO para negocios que usan la app. Este middleware
  * corre ANTES de servir cualquier archivo de /manuales (HTML, imágenes, PDF):
@@ -20,7 +31,17 @@ const SB_KEY = 'sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8'
 const COOKIE = 'spes_manual'
 const CACHE_TTL = 300 // segundos
 
-export async function onRequest(ctx) {
+export default {
+  async fetch(request, env, ctx) {
+    const path = new URL(request.url).pathname
+    if (path === '/manuales' || path.startsWith('/manuales/')) {
+      return guard({ request, waitUntil: (p) => ctx.waitUntil(p), next: () => env.ASSETS.fetch(request) })
+    }
+    return env.ASSETS.fetch(request)
+  }
+}
+
+export async function guard(ctx) {
   const { request, next } = ctx
   const token = readCookie(request.headers.get('Cookie') || '', COOKIE)
   const claims = token ? decodeJwt(token) : null

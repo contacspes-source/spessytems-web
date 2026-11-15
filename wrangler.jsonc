@@ -1,0 +1,12 @@
+{
+  // spessystems.com — Cloudflare Workers + Static Assets (Workers Builds desde GitHub).
+  // El sitio es estático; el Worker solo intercepta /manuales/* (guardia de clientes).
+  "name": "spessytems-web",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/manuales", "/manuales/*"]
+  }
+}
