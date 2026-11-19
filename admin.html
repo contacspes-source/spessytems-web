@@ -114,7 +114,7 @@
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
-  const PRECIOS = { basico:349, pro:599, multisucursal:999 };
+  const PRECIOS = { basico:399, pro:699, multisucursal:1299 }; // respaldo = control.planes (nov-2026)
 
   if(location.protocol==='file:') document.getElementById('filebanner').classList.remove('hidden');
 
@@ -711,7 +711,7 @@
 
   function openPagoModal(b){
     const s=subOf(b);
-    const opts=(ST.PLANES.length?ST.PLANES:[{clave:'basico',nombre:'Básico',precio_mxn:349},{clave:'pro',nombre:'Pro',precio_mxn:599},{clave:'multisucursal',nombre:'Multisucursal',precio_mxn:999}])
+    const opts=(ST.PLANES.length?ST.PLANES:[{clave:'basico',nombre:'Básico',precio_mxn:399},{clave:'pro',nombre:'Pro',precio_mxn:699},{clave:'multisucursal',nombre:'Multisucursal',precio_mxn:1299}])
       .map(p=>`<option value="${esc(p.clave)}" ${s&&s.plan===p.clave?'selected':''}>${esc(p.nombre)} — ${money(p.precio_mxn)}/mes</option>`).join('');
     modalShell(`
       <h3>Registrar pago</h3>

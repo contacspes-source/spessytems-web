@@ -1,0 +1,7 @@
+# Archivos locales que no van al repo
+.wrangler/
+node_modules/
+.dev.vars
+_archivo/
+*.md
+!README.md
