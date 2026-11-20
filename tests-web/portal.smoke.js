@@ -12,11 +12,12 @@ const spesUi = fs.readFileSync(path.join(ROOT, 'spes-ui.js'), 'utf8')
 const spesData = fs.readFileSync(path.join(ROOT, 'spes-data.js'), 'utf8')
 const portalPos = fs.readFileSync(path.join(ROOT, 'portal-pos.js'), 'utf8')
 const portalAdmin = fs.readFileSync(path.join(ROOT, 'portal-admin.js'), 'utf8')
+const portalReportes = fs.readFileSync(path.join(ROOT, 'portal-reportes.js'), 'utf8')
 
 // Stub mínimo de supabase-js: cadena de query encadenable que resuelve vacío.
 const stub = `
 window.__q = () => { const p = Promise.resolve({ data: [], error: null });
-  const h = { select(){return h}, eq(){return h}, in(){return h}, gte(){return h},
+  const h = { select(){return h}, eq(){return h}, in(c,v){ (window.__inArgs=window.__inArgs||[]).push(v); return h }, gte(){return h},
     order(){return h}, limit(){return h}, range(){return h}, maybeSingle(){ return Promise.resolve({data:null,error:null}) },
     insert(){return h}, then(f,r){ return p.then(f,r) } };
   return h; };
@@ -47,6 +48,7 @@ html = html
   .replace('<script src="/spes-data.js"></script>', () => '<script>' + spesData.replace(/<\/script>/g, '<\\/script>') + '</script>')
   .replace('<script src="/portal-pos.js"></script>', () => '<script>' + portalPos.replace(/<\/script>/g, '<\\/script>') + '</script>')
   .replace('<script src="/portal-admin.js"></script>', () => '<script>' + portalAdmin.replace(/<\/script>/g, '<\\/script>') + '</script>')
+  .replace('<script src="/portal-reportes.js"></script>', () => '<script>' + portalReportes.replace(/<\/script>/g, '<\\/script>') + '</script>')
 
 const dom = new JSDOM(html, { runScripts: 'dangerously', url: 'https://spessystems.com/portal' })
 const w = dom.window
@@ -235,7 +237,37 @@ function run(w) {
       && o.ops[2].op_type === 'stock.movement' && o.ops[2].payload.qty_change === 12 && o.ops[1].payload.product_id === o.ops[0].entity_id
       && w.eval("ST.PRODUCTS.some(p=>p.name==='Mango ataulfo') && ST.STOCK[JSON.parse(JSON.stringify(window.__sent)).ops[0].entity_id]===12")
     console.log(ok ? '✓ alta enviada: artículo + código + inventario inicial, y reflejada en pantalla' : (fails++, '✗ alta enviada: ' + sent))
-    finish()
+    lazyTests(w)
+  }, 50)
+}
+
+// ── Carga bajo demanda (nov-2026): lo pesado se baja al abrir la sección ──
+function lazyTests(w) {
+  const d = w.document
+  const content = () => d.getElementById('content').innerHTML
+  // 1) Abrir Caja sin datos cargados: primero "Cargando…", luego la sección.
+  w.eval(`ST._lazy={}; ST._lazyDone={}; ST._loadErrors=[]; ST.tab='caja'; render()`)
+  const first = content()
+  console.log(first.includes('Cargando') && first.includes('Caja') ? '✓ Caja muestra "Cargando…" mientras baja sus datos' : (fails++, '✗ Caja no mostró Cargando: ' + first.slice(0, 120)))
+  setTimeout(() => {
+    const done = w.eval('ST._lazyDone.caja===true && !ST._lazyDone.mermas && !ST._lazyDone.codigos')
+    console.log(done ? '✓ Caja baja solo lo suyo (no mermas ni códigos)' : (fails++, '✗ estado de carga: ' + w.eval('JSON.stringify(ST._lazyDone)')))
+    console.log(!content().includes('Cargando…') ? '✓ Caja se pinta al llegar los datos' : (fails++, '✗ Caja se quedó cargando'))
+    // 2) Una carga que falla no deja la sección cargando para siempre.
+    w.eval(`ST._lazy={}; ST._lazyDone={}; window.__realFetchAll=SpesData.fetchAll; SpesData.fetchAll=()=>Promise.reject(new Error('timeout de prueba')); ST.tab='inventario'; render()`)
+    setTimeout(() => {
+      const okFail = w.eval(`ST._lazyDone.codigos===true && ST._loadErrors.some(e=>/timeout de prueba/.test(e))`)
+      console.log(okFail && !content().includes('Cargando…') ? '✓ si falla la carga, la sección se pinta con aviso (no se queda cargando)' : (fails++, '✗ fallo de carga: ' + content().slice(0, 160)))
+      w.eval('SpesData.fetchAll=window.__realFetchAll')
+      // 3) Al entrar, loadPortal ya NO pide las tablas pesadas.
+      w.eval(`window.__inArgs=[]; loadPortal()`)
+      setTimeout(() => {
+        const args = JSON.stringify(w.eval('window.__inArgs'))
+        const heavy = ['cash_movements', 'egresos', 'expenses', 'product_barcodes'].filter(t => args.includes(t))
+        console.log(args.includes('purchase_orders') && heavy.length === 0 ? '✓ al entrar no se bajan movimientos de caja, egresos ni códigos' : (fails++, '✗ loadPortal pidió: ' + args))
+        finish()
+      }, 50)
+    }, 50)
   }, 50)
 }
 function finish() {
