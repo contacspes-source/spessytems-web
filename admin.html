@@ -27,6 +27,8 @@
   .loginbox .muted{ margin-top:2px; }
   .loginbox input{ margin-top:10px; text-align:left; }
   #filebanner{ background:var(--bad-bg); color:var(--bad-fg); border-bottom:1px solid var(--border); padding:12px 18px; font-size:13px; text-align:center; }
+  #loadwarn{ background:var(--bad-bg); color:var(--bad-fg); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #loadwarn.hidden{ display:none; }
   #filebanner code{ background:var(--surface); padding:1px 6px; border-radius:5px; border:1px solid var(--border); }
   #menuBtn{ display:none; } @media(max-width:900px){ #menuBtn{ display:inline-flex; } }
 
@@ -99,6 +101,7 @@
       <div id="notadmin" class="state hidden" style="margin-bottom:20px">
         Esta cuenta (<b id="na-email"></b>) no está autorizada para el panel. Entra con tu cuenta de administrador.
       </div>
+      <div id="loadwarn" class="hidden" role="alert"></div>
       <div id="content"></div>
     </main>
   </div>
@@ -114,7 +117,16 @@
 <script>
   const SB_URL='https://khpecvszzhyygqudeagr.supabase.co';
   const SB_KEY='sb_publishable_FvWr_E6vuc7Gf3GRkzh62Q_kfzmPVp8';
-  const PRECIOS = { basico:349, pro:599, multisucursal:999 };
+  // Planes de RESPALDO: solo se usan si control.planes no cargó. La fuente de
+  // verdad de los precios es la tabla control.planes (se edita en Suscripciones → Planes).
+  // Si cambias precios, cámbialos allá y aquí (este es el ÚNICO lugar del código).
+  const PLANES_RESPALDO = [
+    { clave:'basico',        nombre:'Básico',        precio_mxn:399 },
+    { clave:'pro',           nombre:'Pro',           precio_mxn:699 },
+    { clave:'multisucursal', nombre:'Multisucursal', precio_mxn:1299 }
+  ]; // = control.planes (nov-2026)
+  const PRECIOS = Object.fromEntries(PLANES_RESPALDO.map(p=>[p.clave,p.precio_mxn]));
+  const planesDisponibles = () => ST.PLANES.length ? ST.PLANES : PLANES_RESPALDO;
 
   if(location.protocol==='file:') document.getElementById('filebanner').classList.remove('hidden');
 
@@ -132,7 +144,7 @@
   const subOf = b => Array.isArray(b.subscriptions) ? (b.subscriptions[0]||null) : (b.subscriptions||null);
   function planPrecio(clave){ const p=ST.PLANES.find(x=>x.clave===clave); return p?Number(p.precio_mxn):(PRECIOS[clave]||0); }
   const precioDe = s => s ? (s.precio_mxn!=null ? Number(s.precio_mxn) : planPrecio(s.plan)) : 0;
-  function planOptions(){ const ps=ST.PLANES.length?ST.PLANES:[{clave:'basico',nombre:'Básico'},{clave:'pro',nombre:'Pro'},{clave:'multisucursal',nombre:'Multisucursal'}]; return ps.map(p=>({value:p.clave,label:p.nombre})); }
+  function planOptions(){ return planesDisponibles().map(p=>({value:p.clave,label:p.nombre})); }
 
   // ===== MODALES (reemplazan alert/prompt/confirm) =====
   function modalShell(inner){ const m=$('modal'); m.innerHTML='<div class="modal">'+inner+'</div>'; m.classList.remove('hidden'); }
@@ -255,15 +267,18 @@
     { group:'Analíticas', items:[ {id:'an_ventas',label:'Ventas'},{id:'an_ingresos',label:'Ingresos'},{id:'an_churn',label:'Churn',soon:1},{id:'an_conv',label:'Conversión'},{id:'an_uso',label:'Uso del sistema'} ] },
     { group:'Infraestructura', items:[ {id:'flota',label:'Flota'},{id:'inf_estado',label:'Estado',soon:1},{id:'inf_serv',label:'Servidores',soon:1},{id:'inf_db',label:'Base de datos',soon:1},{id:'inf_backups',label:'Backups',soon:1},{id:'inf_logs',label:'Logs',soon:1} ] },
     { group:'Configuración', items:[ {id:'cfg_empresa',label:'Empresa'},{id:'cfg_branding',label:'Branding'},{id:'cfg_correos',label:'Correos'},{id:'cfg_api',label:'API',soon:1},{id:'cfg_integraciones',label:'Integraciones',soon:1} ] },
-    { items:[ {id:'cuenta',label:'Cuenta'} ] }
+    { items:[ {id:'roadmap',label:'Roadmap'},{id:'cuenta',label:'Cuenta'} ] }
   ];
-  const NAVIC={ dashboard:'dashboard', clientes:'users', mensajes:'bell', empresas:'building', contactos:'user', planes:'tag', pagos:'card', renovaciones:'receipt', facturacion:'receipt', membresias:'tag', tickets:'message', kb:'help', anuncios:'bell', conversaciones:'chat', actualizaciones:'box', licencias:'tag', pf:'box', pr:'box', pg:'box', hardware:'box', roles:'users', permisos:'gear', formularios:'help', newsletter:'bell', an_ventas:'chart', an_ingresos:'chart', an_churn:'chart', an_conv:'chart', an_uso:'chart', flota:'truck', inf_estado:'activity', inf_serv:'server', inf_db:'database', inf_backups:'cloud', inf_logs:'file', cfg_empresa:'gear', cfg_branding:'gear', cfg_correos:'gear', cfg_api:'gear', cfg_integraciones:'gear', cuenta:'user' };
+  // El menú lateral solo muestra lo que ya funciona. Los módulos "próximamente"
+  // (soon:1) siguen definidos arriba, pero se listan en la página Roadmap.
+  const NAV_VISIBLE = NAV.map(g=>({ ...g, items:g.items.filter(it=>!it.soon) })).filter(g=>g.items.length);
+  const NAVIC={ dashboard:'dashboard', clientes:'users', mensajes:'bell', empresas:'building', contactos:'user', planes:'tag', pagos:'card', renovaciones:'receipt', facturacion:'receipt', membresias:'tag', tickets:'message', kb:'help', anuncios:'bell', conversaciones:'chat', actualizaciones:'box', licencias:'tag', pf:'box', pr:'box', pg:'box', hardware:'box', roles:'users', permisos:'gear', formularios:'help', newsletter:'bell', an_ventas:'chart', an_ingresos:'chart', an_churn:'chart', an_conv:'chart', an_uso:'chart', flota:'truck', inf_estado:'activity', inf_serv:'server', inf_db:'database', inf_backups:'cloud', inf_logs:'file', cfg_empresa:'gear', cfg_branding:'gear', cfg_correos:'gear', cfg_api:'gear', cfg_integraciones:'gear', roadmap:'activity', cuenta:'user' };
   const LABEL = {};
   NAV.forEach(g=>g.items.forEach(it=>{ LABEL[it.id]=it.label; }));
 
   const GROUPIC={ 'CRM':'users','Suscripciones':'card','Soporte':'support','Productos':'box','Usuarios':'users','Marketing':'bell','Analíticas':'chart','Infraestructura':'server','Configuración':'gear' };
   function renderNav(){
-    SpesUI.renderSidebar($('nav'), NAV, {
+    SpesUI.renderSidebar($('nav'), NAV_VISIBLE, {
       activeId: ST.view,
       itemIcon: id=>SpesUI.icon(NAVIC[id]||'dot'),
       groupIcon: name=>SpesUI.icon(GROUPIC[name]||'dot'),
@@ -331,11 +346,28 @@
         sbc.from('plantillas_correo').select('*').order('nombre',{ascending:true})
       ]);
       if(b.error) throw b.error;
+      // Antes solo se revisaba la consulta de negocios: si fallaba otra (p. ej. pagos),
+      // la sección salía vacía o el MRR en $0 sin avisar. Ahora se juntan los fallos
+      // y se muestra un aviso arriba del contenido diciendo qué no cargó.
+      const NOMBRES={ s:'Suscripciones', p:'Pagos', l:'Mensajes', ad:'Administradores', ve:'Actualizaciones', pl:'Planes', tk:'Tickets', an:'Anuncios', kb:'Base de conocimiento', nt:'Notas', cfg:'Configuración', fl:'Flota', tpl:'Plantillas de correo' };
+      const res={ s,p,l,ad,ve,pl,tk,an,kb,nt,cfg,fl,tpl };
+      ST.LOAD_ERRORS=Object.keys(NOMBRES).filter(k=>res[k]&&res[k].error).map(k=>({ seccion:NOMBRES[k], msg:res[k].error.message||String(res[k].error) }));
+      mostrarAvisoCarga();
       const subByB={}; (s.data||[]).forEach(x=>{ subByB[x.business_id]=x; });
       ST.NEGOCIOS=(b.data||[]).map(x=>({ ...x, subscriptions: subByB[x.id]?[subByB[x.id]]:[] }));
       ST.PAGOS=(p.data||[]).map(x=>({ ...x, created_at: x.created_at || x.fecha })); ST.LEADS=l.data||[]; ST.ADMINS=ad.data||[]; ST.VERSIONES=ve.data||[]; ST.PLANES=pl.data||[];
       ST.TICKETS=tk.data||[]; ST.ANUNCIOS=an.data||[]; ST.KB=kb.data||[]; ST.NOTAS=nt.data||[]; ST.CONFIG=cfg.data||null; ST.FLEET=fl.data||[]; ST.PLANTILLAS=tpl.data||[];
     }catch(e){ $('content').innerHTML='<div class="card state" style="color:#dc2626">Error al cargar: '+esc(e.message||String(e))+'</div>'; }
+  }
+  function mostrarAvisoCarga(){
+    const el=$('loadwarn'); if(!el) return;
+    const errs=ST.LOAD_ERRORS||[];
+    if(!errs.length){ el.classList.add('hidden'); el.innerHTML=''; return; }
+    el.innerHTML='<span><b>No se pudo cargar:</b> '+errs.map(e=>esc(e.seccion)).join(', ')+'. Lo que veas en esas secciones puede estar incompleto (por ejemplo, el MRR).</span>'
+      +'<span class="sp" style="flex:1"></span><button class="btn sm" id="loadwarnRetry">Reintentar</button>';
+    el.title=errs.map(e=>e.seccion+': '+e.msg).join('\n');
+    el.classList.remove('hidden');
+    $('loadwarnRetry').onclick=async()=>{ $('loadwarnRetry').disabled=true; await loadAll(); render(); };
   }
   const nameOf = bid => { const b=ST.NEGOCIOS.find(x=>x.id===bid); return b?(b.business_name||'(sin nombre)'):'—'; };
 
@@ -418,6 +450,7 @@
       case 'an_conv': return renderAnConv(c);
       case 'an_uso': return renderAnUso(c);
       case 'cuenta': return renderCuenta(c);
+      case 'roadmap': return renderRoadmap(c);
       default: return renderSoon(c);
     }
   }
@@ -711,7 +744,7 @@
 
   function openPagoModal(b){
     const s=subOf(b);
-    const opts=(ST.PLANES.length?ST.PLANES:[{clave:'basico',nombre:'Básico',precio_mxn:349},{clave:'pro',nombre:'Pro',precio_mxn:599},{clave:'multisucursal',nombre:'Multisucursal',precio_mxn:999}])
+    const opts=planesDisponibles()
       .map(p=>`<option value="${esc(p.clave)}" ${s&&s.plan===p.clave?'selected':''}>${esc(p.nombre)} — ${money(p.precio_mxn)}/mes</option>`).join('');
     modalShell(`
       <h3>Registrar pago</h3>
@@ -1450,6 +1483,12 @@
   }
 
   // ===== PRÓXIMAMENTE =====
+  function renderRoadmap(c){
+    const grupos=NAV.filter(g=>g.items.some(it=>it.soon));
+    c.innerHTML=`<div class="sechead"><h2>Roadmap del panel</h2></div>
+      <p class="hint">Módulos planeados que todavía no existen. Se quitaron del menú para que solo veas lo que ya funciona; se construirán cuando haga falta (documento maestro, §8.2).</p>
+      <div class="grid2">${grupos.map(g=>`<div class="panel"><h3>${esc(g.group)}</h3><ul class="feed">${g.items.filter(it=>it.soon).map(it=>`<li><span class="dot"></span><span>${esc(it.label)}</span></li>`).join('')}</ul></div>`).join('')}</div>`;
+  }
   function renderSoon(c){
     c.innerHTML=`<div class="card soonbox"><div class="big">${esc(LABEL[ST.view]||'Módulo')} · próximamente</div>Este módulo está en el roadmap. Lo construiremos en las siguientes fases.</div>`;
   }

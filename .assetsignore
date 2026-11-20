@@ -7,3 +7,5 @@ worker
 tests-web
 node_modules
 README.md
+.wrangler
+.gitignore
