@@ -118,7 +118,7 @@ function run(w) {
   `)
 
   const CASES = [
-    ['rInicio', ['Frutería Prueba', 'Alertas', 'bajo mínimo', 'sin conexión', 'abierta', 'pendiente', 'vence en']],
+    ['rInicio', ['Frutería Prueba', 'Alertas', 'por reabastecer', 'sin conexión', 'abierta', 'pendiente', 'vence en']],
     ['PosMirror.transacciones(document.__target, posCtx()); 0', ['VAA-000001', 'Se vendió (2 productos)', 'Plátano Tabasco', 'Ventas brutas', 'Pagos recibidos', 'Cambio entregado', 'Con devolución', 'RAA-000001', 'Cajero: Ana López']],
     ['PosMirror.inventario(document.__target, posCtx()); 0', ['Manzana', 'Por reabastecer', 'Negativos', 'Críticos', 'Editar', '50%', 'pm-neg', 'ap-split']],
     ['PosMirror.caja(document.__target, posCtx(), rCaja); 0', ['sin corte', 'Entradas de efectivo hoy', 'Pago proveedor']],
