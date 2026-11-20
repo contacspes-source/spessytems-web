@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -109,9 +109,11 @@
   .rdg{ transition:opacity .3s ease; }
   [data-serie]{ transition:opacity .25s ease; }
 </style>
+<!-- Estilo de la app (nov-2026): colores, menú claro, paneles y barra inferior. -->
+<link rel="stylesheet" href="/portal-app.css">
 <script>
-  /* Tema guardado ANTES del primer render (sin parpadeo). 'white' = quitar el
-     atributo (usa :root claro de spes-ui.css); default sin preferencia = dark. */
+  /* Tema guardado ANTES del primer render (sin parpadeo). 'white' = sin
+     atributo (tema claro). Nov-2026: el default es Blanco, igual que la app. */
   try{ var _t=localStorage.getItem('spes.portal.theme');
     if(_t==='white') document.documentElement.removeAttribute('data-theme');
     else if(_t==='gray'||_t==='dark') document.documentElement.setAttribute('data-theme',_t);
@@ -132,12 +134,12 @@
       <button class="btn" style="width:100%;margin-top:14px" type="submit">Entrar</button>
       <p id="loginMsg" class="msg"></p>
     </form>
-    <div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:rgba(255,255,255,.35);font-size:12px"><span style="flex:1;height:1px;background:var(--border)"></span>o<span style="flex:1;height:1px;background:var(--border)"></span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px;font-size:12px" class="loginsep"><span style="flex:1;height:1px;background:var(--border)"></span>o<span style="flex:1;height:1px;background:var(--border)"></span></div>
     <button class="btn ghost" id="googleBtn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px">
       <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
       Continuar con Google
     </button>
-    <p class="muted" style="margin-top:18px">¿Problemas para entrar? Escríbenos a <a href="mailto:contacspes@gmail.com" style="color:#fff">contacspes@gmail.com</a></p>
+    <p class="muted" style="margin-top:18px">¿Problemas para entrar? Escríbenos a <a href="mailto:contacspes@gmail.com">contacspes@gmail.com</a></p>
   </div>
 </div>
 
@@ -152,12 +154,15 @@
       <button class="spes-iconbtn" id="menuBtn" aria-label="Menú">☰</button>
       <span class="vt" id="viewTitle">Inicio</span>
       <span class="sp"></span>
+      <span class="syncdot off" id="syncDot"></span>
       <span class="muted" id="who"></span>
       <button class="btn ghost sm" id="logout">Salir</button>
     </header>
     <main id="content" class="spes-main"></main>
   </div>
   <div id="backdrop" class="spes-backdrop"></div>
+  <!-- Celular: barra inferior como la de la caja (se llena en renderTabs). -->
+  <nav id="bottomNav" class="ap-bottom" aria-label="Secciones principales"></nav>
 </div>
 
 <div id="modal" class="modal-overlay hidden"></div>
@@ -193,7 +198,7 @@
 
   // ===== AUTH =====
   // Captcha Cloudflare Turnstile (lo valida Supabase Auth). Ver spes-captcha.js
-  const loginCaptcha=SpesCaptcha.mount($('captcha'),{ theme:'dark', action:'portal_login' });
+  const loginCaptcha=SpesCaptcha.mount($('captcha'),{ theme:'auto', action:'portal_login' });
   $('loginForm').addEventListener('submit', async e=>{
     e.preventDefault();
     const m=$('loginMsg');
@@ -249,6 +254,7 @@
     ST.uid=session.user.id; ST.email=session.user.email; setManualCookie(session); $('who').textContent=session.user.email;
     $('content').innerHTML='<div class="state">Cargando tu negocio…</div>';
     await loadPortal();
+    renderSyncDot();
     router.handle();
   }
   async function loadPortal(){
@@ -400,7 +406,31 @@
     });
     const grp=(NAVP.find(g=>g.group && g.items.some(it=>it.id===ST.tab))||{}).group;
     const lbl=PLABEL[ST.tab]||'Inicio';
+    renderBottomNav();
     $('viewTitle').innerHTML = grp ? '<span class="crumb">'+esc(grp)+'</span><span class="crumb-sep">›</span>'+esc(lbl) : esc(lbl);
+  }
+  // Celular: las 5 secciones que más se usan, como la barra de la caja; "Menú"
+  // abre el menú completo. En PC esta barra no se ve (portal-app.css).
+  const BOTTOM=[['inicio','Inicio','home'],['transacciones','Ventas','chart'],['inventario','Inventario','box'],['caja','Caja','card'],['reportes','Reportes','dashboard']];
+  function renderBottomNav(){
+    const el=$('bottomNav'); if(!el) return;
+    const cur=ST.tab==='ventas'?'transacciones':ST.tab;
+    const inMenu=!BOTTOM.some(b=>b[0]===cur);
+    el.innerHTML=BOTTOM.map(b=>'<button type="button" data-bn="'+b[0]+'" class="'+(b[0]===cur?'on':'')+'">'+SpesUI.icon(b[2])+'<span>'+b[1]+'</span></button>').join('')
+      +'<button type="button" data-bn="__menu" class="'+(inMenu?'on':'')+'">'+SpesUI.icon('dots')+'<span>Menú</span></button>';
+    el.querySelectorAll('[data-bn]').forEach(b=>b.onclick=()=>{ if(b.dataset.bn==='__menu') $('menuBtn').click(); else go(b.dataset.bn); });
+  }
+  // Estado de sincronización en la barra superior (como "Sincronizado" en la caja):
+  // se calcula con la última vez que alguna caja se reportó a la nube.
+  function renderSyncDot(){
+    const el=$('syncDot'); if(!el) return;
+    const last=(ST.FLEET||[]).map(f=>f.last_seen_at).filter(Boolean).sort().pop();
+    if(!last){ el.className='syncdot off'; el.textContent='Sin cajas conectadas'; return; }
+    const min=Math.max(0,Math.round((Date.now()-new Date(last).getTime())/60000));
+    const txt=min<1?'hace un momento':min<60?('hace '+min+' min'):min<1440?('hace '+Math.round(min/60)+' h'):('hace '+Math.round(min/1440)+' d');
+    el.className='syncdot'+(min<=15?'':min<1440?' warn':' off');
+    el.textContent=(min<=15?'Sincronizado ':'Última sincronización ')+txt;
+    el.title='Última vez que una de tus cajas se conectó a la nube';
   }
   const router = SpesUI.createRouter({ storageKey:'spes.portal.route', default:'inicio', onRoute:applyRoute });
   function applyRoute(route){
@@ -516,7 +546,7 @@
   function alertasHtml(){
     const al=[];
     const low=ST.PRODUCTS.filter(p=>p.is_active!==0).filter(p=>{ const s=ST.STOCK[p.id]; return s!=null&&p.stock_min!=null&&s<=Number(p.stock_min); }).length;
-    if(low>0) al.push(['t-warn', low+' producto'+(low===1?'':'s')+' bajo mínimo','inventario']);
+    if(low>0) al.push(['t-warn', low+' producto'+(low===1?'':'s')+' por reabastecer','inventario']);
     const s=ST.sub, dl=s?daysLeft(s.vence):null;
     if(dl!=null&&dl<0) al.push(['t-bad','Tu suscripción está vencida','suscripcion']);
     else if(dl!=null&&dl<=7) al.push(['t-warn','Tu suscripción vence en '+dl+' día'+(dl===1?'':'s'),'suscripcion']);
@@ -764,11 +794,11 @@
 
   // ===== CONFIGURACION (tema del portal, como Apariencia en la app) =====
   const PORTAL_THEMES=[
-    ['white','Blanco','#f5f6f8','#ffffff'],
-    ['gray','Gris','#e7eaee','#5e6c7f'],
-    ['dark','Oscuro','#000000','#2a2a2a']
+    ['white','Blanco','#f5f5f5','#ffffff'],
+    ['gray','Gris','#e7eaee','#3b4654'],
+    ['dark','Oscuro','#121212','#606060']
   ];
-  function portalTheme(){ try{ const t=localStorage.getItem('spes.portal.theme'); return (t==='white'||t==='gray'||t==='dark')?t:'dark'; }catch(_){ return 'dark'; } }
+  function portalTheme(){ try{ const t=localStorage.getItem('spes.portal.theme'); return (t==='white'||t==='gray'||t==='dark')?t:'white'; }catch(_){ return 'white'; } }
   function setPortalTheme(t){ try{ localStorage.setItem('spes.portal.theme',t); }catch(_){ } if(t==='white') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t); }
   function rAjustes(c){
     const cur=portalTheme();
@@ -803,8 +833,11 @@
       </div>`;
     if(!ST.FLEET.length){ c.insertAdjacentHTML('beforeend','<div style="margin-top:16px"></div><div class="state">Aún no hay dispositivos reportados. Abre tu POS con internet y aparecerá aquí.</div>'); return; }
     let h='<div class="card" style="margin-top:16px;padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Dispositivo</th><th>Versión</th><th>Plataforma</th><th>Primera conexión</th><th>Última conexión</th><th>Estado</th></tr></thead><tbody>';
+    // "Caja 1, Caja 2…" según el orden en que cada caja se conectó por primera vez
+    // (la nube no guarda un nombre; el código corto queda abajo para soporte).
+    const orden=[...ST.FLEET].sort((a,b)=>String(a.first_seen_at||'').localeCompare(String(b.first_seen_at||''))).map(f=>f.device_id);
     for(const f of ST.FLEET){ const d=coldDays(f);
-      h+=`<tr><td class="mono">${esc(String(f.device_id||'').slice(0,8))}</td><td class="mono">${esc(f.app_version||'—')}</td><td class="muted">${esc(f.platform||'—')}</td><td class="muted">${f.first_seen_at?fdate(f.first_seen_at):'—'}</td><td>${f.last_seen_at?fdt(f.last_seen_at):'—'}</td><td>${d==null?'<span class="tag t-neutral">—</span>':(d>=7?'<span class="tag t-bad">'+d+' días sin conexión</span>':'<span class="tag t-ok">en línea reciente</span>')}</td></tr>`;
+      h+=`<tr><td><b>Caja ${orden.indexOf(f.device_id)+1}</b><br><span class="mono muted" style="font-size:11.5px">${esc(String(f.device_id||'').slice(0,8))}</span></td><td class="mono">${esc(f.app_version||'—')}</td><td class="muted">${esc(f.platform||'—')}</td><td class="muted">${f.first_seen_at?fdate(f.first_seen_at):'—'}</td><td>${f.last_seen_at?fdt(f.last_seen_at):'—'}</td><td>${d==null?'<span class="tag t-neutral">—</span>':(d>=7?'<span class="tag t-bad">'+d+' días sin conexión</span>':'<span class="tag t-ok">en línea reciente</span>')}</td></tr>`;
     }
     c.insertAdjacentHTML('beforeend',h+'</tbody></table></div>');
   }
