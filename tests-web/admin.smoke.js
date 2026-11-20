@@ -120,6 +120,27 @@ function run(w) {
   if (stillHasDead) { fails++; console.log('✗ código muerto: renderAdmins sigue definido') }
   else console.log('✓ código muerto eliminado (renderAdmins)')
 
+  // Menú limpio (nov-2026): el sidebar NO muestra módulos "próximamente";
+  // se listan en la página Roadmap.
+  try {
+    w.eval(`renderNav();`)
+    const navHtml = d.getElementById('nav').innerHTML
+    const soonEnMenu = d.querySelectorAll('#nav .soon').length
+    if (soonEnMenu === 0 && navHtml.includes('Clientes') && navHtml.includes('Roadmap')) console.log('✓ menú sin "próximamente" (y con Roadmap)')
+    else { fails++; console.log('✗ menú: ' + soonEnMenu + ' opciones "próximamente" visibles o falta Roadmap') }
+    w.eval(`ST.view='roadmap'; ST.param=null; render();`)
+    const rm = d.getElementById('content').innerHTML
+    if (['Roadmap del panel', 'Churn', 'Backups', 'Newsletter'].every((m) => rm.includes(m))) console.log('✓ roadmap lista los módulos planeados')
+    else { fails++; console.log('✗ roadmap no lista los módulos planeados') }
+  } catch (e) { fails++; console.log('✗ menú/roadmap — EXCEPCIÓN:', e.message) }
+
+  // Precios de respaldo en un solo lugar: sin control.planes, el modal de pago usa PLANES_RESPALDO.
+  try {
+    const precios = w.eval(`(()=>{ const bak=ST.PLANES; ST.PLANES=[]; const r=planesDisponibles().map(p=>p.precio_mxn).join(','); ST.PLANES=bak; return r; })()`)
+    if (precios === '399,699,1299') console.log('✓ precios de respaldo desde un solo lugar (' + precios + ')')
+    else { fails++; console.log('✗ precios de respaldo inesperados: ' + precios) }
+  } catch (e) { fails++; console.log('✗ precios de respaldo — EXCEPCIÓN:', e.message) }
+
   // Buscador: filtrar clientes por "Reynosa" reduce el conteo.
   try {
     w.eval(`ST.view='clientes'; render();`)
@@ -193,9 +214,19 @@ function run(w) {
         if (fichaHtml().includes('Aún ningún cliente sube ventas')) console.log('✓ an_ventas: estado vacío async (RPC sin datos)')
         else { fails++; console.log('✗ an_ventas: no pintó el estado vacío del RPC') }
 
-        if (errors.length) { fails++; console.log('✗ errores de ventana:', errors.slice(0, 3)) }
-        console.log(fails === 0 ? '\nSMOKE PANEL (Bloques A+B+C+D): TODO EN VERDE' : `\nSMOKE PANEL: ${fails} FALLA(S)`)
-        process.exit(fails === 0 ? 0 : 1)
+        // Aviso de carga: si falla una consulta (pagos), el panel lo dice arriba
+        // del contenido en lugar de mostrar $0 en silencio. Va al final porque
+        // loadAll() reemplaza los datos falsos.
+        w.eval(`sbc.from = (t) => t==='pagos' ? { select(){return this}, order(){return this}, limit(){ return Promise.resolve({data:null,error:{message:'permiso denegado'}}) } } : window.__q();`)
+        w.eval(`loadAll()`).then(() => {
+          const lw = d.getElementById('loadwarn')
+          if (lw && !lw.classList.contains('hidden') && lw.textContent.includes('Pagos')) console.log('✓ aviso cuando falla una consulta (Pagos)')
+          else { fails++; console.log('✗ no avisó que falló la consulta de pagos') }
+
+          if (errors.length) { fails++; console.log('✗ errores de ventana:', errors.slice(0, 3)) }
+          console.log(fails === 0 ? '\nSMOKE PANEL (Bloques A+B+C+D): TODO EN VERDE' : `\nSMOKE PANEL: ${fails} FALLA(S)`)
+          process.exit(fails === 0 ? 0 : 1)
+        })
       }, 150)
     }, 150)
   }, 150)
