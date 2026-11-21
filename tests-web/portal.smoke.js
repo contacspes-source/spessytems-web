@@ -118,9 +118,9 @@ function run(w) {
   `)
 
   const CASES = [
-    ['rInicio', ['Frutería Prueba', 'Alertas', 'bajo mínimo', 'sin conexión', 'abierta', 'pendiente', 'vence en']],
+    ['rInicio', ['Frutería Prueba', 'Alertas', 'por reabastecer', 'sin conexión', 'abierta', 'pendiente', 'vence en']],
     ['PosMirror.transacciones(document.__target, posCtx()); 0', ['VAA-000001', 'Se vendió (2 productos)', 'Plátano Tabasco', 'Ventas brutas', 'Pagos recibidos', 'Cambio entregado', 'Con devolución', 'RAA-000001', 'Cajero: Ana López']],
-    ['PosMirror.inventario(document.__target, posCtx()); 0', ['Manzana', 'Bajo mínimo', 'Existencia negativa', 'Editar', '50%', 'pm-neg']],
+    ['PosMirror.inventario(document.__target, posCtx()); 0', ['Manzana', 'Por reabastecer', 'Negativos', 'Críticos', 'Editar', '50%', 'pm-neg', 'ap-split']],
     ['PosMirror.caja(document.__target, posCtx(), rCaja); 0', ['sin corte', 'Entradas de efectivo hoy', 'Pago proveedor']],
     ['rCompras', ['CAA-000001', 'Abarrotes del Norte', 'recibida', 'borrador', 'Pendientes de recibir']],
     ['rDevoluciones', ['RAA-000001', 'Producto dañado', 'Reembolsado este mes']],
@@ -133,7 +133,7 @@ function run(w) {
     ['rMermas', ['Manzana', 'Caducado', '-3']],
     // Reportes (rediseño jul-2026 con pestañas) + devoluciones restadas como en el POS (oct-2026).
     ['rReportes', ['La foto de tu negocio', 'Resumen', 'Por artículo', 'Ventas brutas', 'Devoluciones (1)', 'Ventas netas']],
-    ['rDispositivos', ['0.5.0', 'días sin conexión', 'en línea reciente']]
+    ['rDispositivos', ['0.5.0', 'días sin conexión', 'en línea reciente', 'Caja 1']]
   ]
   for (const [fn, marks] of CASES) {
     const div = d.createElement('div')

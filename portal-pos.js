@@ -294,12 +294,49 @@
   function stockOf(ST, p) { var s = ST.STOCK[p.id]; return s == null ? 0 : Number(s) }
   function isActive(p) { return Number(p.is_active) !== 0 && Number(p.archived || 0) !== 1 }
 
+  /** Estado de existencia de un artículo, con la MISMA regla que la caja
+   *  (stockState.ts del POS): caducidad primero, luego existencia vs mínimo. */
+  function stockBadge(p, s) {
+    if (p.expiry_date) {
+      var d = String(p.expiry_date).slice(0, 10).split('-')
+      var exp = new Date(Number(d[0]), Number(d[1]) - 1, Number(d[2]))
+      var today = new Date(); today.setHours(0, 0, 0, 0)
+      if (!isNaN(exp)) {
+        if (exp < today) return { label: 'Caducado', tone: 'bad', key: 'expired' }
+        if ((exp - today) / 86400000 <= 7) return { label: 'Por caducar', tone: 'warn', key: 'expiring' }
+      }
+    }
+    var min = Number(p.stock_min || 0)
+    if (s < 0) return { label: 'Negativo', tone: 'bad', key: 'negative' }
+    if (s <= 0) return { label: 'Agotado', tone: 'bad', key: 'out' }
+    if (min > 0 && s <= min * 0.5) return { label: 'Crítico', tone: 'bad', key: 'critical' }
+    if (min > 0 && s <= min) return { label: 'Por reabastecer', tone: 'warn', key: 'low' }
+    return { label: 'OK', tone: '', key: 'ok' }
+  }
+  /** Filtros de estado: mismos nombres y significado que en la caja. */
+  var INV_STATES = [
+    ['all', 'Todos'], ['low', 'Por reabastecer'], ['critical', 'Críticos'], ['out', 'Agotados'],
+    ['negative', 'Negativos'], ['expiring', 'Por caducar'], ['expired', 'Caducados'], ['inactive', 'Inactivos']
+  ]
+  function matchState(state, p, s) {
+    var min = Number(p.stock_min || 0), b = stockBadge(p, s)
+    if (state === 'low') return min > 0 && s > 0 && s <= min
+    if (state === 'critical') return min > 0 && s > 0 && s <= min * 0.5
+    if (state === 'out') return s <= 0
+    if (state === 'negative') return s < 0
+    if (state === 'expiring') return b.key === 'expiring'
+    if (state === 'expired') return b.key === 'expired'
+    return true
+  }
+  var INV_SORTS = [['name', 'Nombre A-Z'], ['name_desc', 'Nombre Z-A'], ['stock_asc', 'Menos existencia primero'], ['stock_desc', 'Más existencia primero'], ['price_desc', 'Precio más alto']]
+
   function inventario(c, ctx) {
     var ST = ctx.ST, esc = ctx.esc, money = ctx.money, f = invState(ST)
+    if (!f.sort) f.sort = 'name'
     var all = (ST.PRODUCTS || []).filter(function (p) { return !p.is_deleted })
     var active = all.filter(isActive)
     var neg = active.filter(function (p) { return stockOf(ST, p) < 0 }).length
-    var low = active.filter(function (p) { var s = stockOf(ST, p); return s >= 0 && Number(p.stock_min || 0) > 0 && s <= Number(p.stock_min) }).length
+    var low = active.filter(function (p) { return matchState('low', p, stockOf(ST, p)) }).length
     var costVal = 0, retailVal = 0
     active.forEach(function (p) { var s = stockOf(ST, p); if (s > 0) { costVal += s * Number(p.cost_price || 0); retailVal += s * Number(p.price_retail || 0) } })
 
@@ -307,13 +344,17 @@
     var list = all.filter(function (p) {
       var s = stockOf(ST, p)
       if (f.state === 'inactive') { if (isActive(p)) return false } else if (!isActive(p)) return false
-      if (f.state === 'neg' && !(s < 0)) return false
-      if (f.state === 'low' && !(s >= 0 && Number(p.stock_min || 0) > 0 && s <= Number(p.stock_min))) return false
-      if (f.state === 'zero' && s !== 0) return false
+      if (!matchState(f.state, p, s)) return false
       if (f.cat && (p.category_id || '') !== f.cat) return false
       if (q && norm(p.name).indexOf(q) < 0 && norm(p.sku).indexOf(q) < 0 && norm(p.barcode).indexOf(q) < 0 && norm(p.brand).indexOf(q) < 0) return false
       return true
-    }).sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || '')) })
+    }).sort(function (a, b) {
+      if (f.sort === 'name_desc') return String(b.name || '').localeCompare(String(a.name || ''))
+      if (f.sort === 'stock_asc') return stockOf(ST, a) - stockOf(ST, b)
+      if (f.sort === 'stock_desc') return stockOf(ST, b) - stockOf(ST, a)
+      if (f.sort === 'price_desc') return Number(b.price_retail || 0) - Number(a.price_retail || 0)
+      return String(a.name || '').localeCompare(String(b.name || ''))
+    })
     var PER = 50, pages = Math.max(1, Math.ceil(list.length / PER))
     if (f.page > pages) f.page = pages
     if (f.page < 1) f.page = 1
@@ -321,35 +362,52 @@
 
     var cats = Object.keys(ST.CATEGORIES || {}).map(function (id) { return [id, ST.CATEGORIES[id]] }).sort(function (a, b) { return String(a[1]).localeCompare(String(b[1])) })
     var PA = window.PortalAdmin
-    var h = '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><h2>Inventario y artículos</h2><p class="sub" style="margin-bottom:14px">Tus artículos y existencias tal cual en la caja. Da de alta artículos, cambia precios y ajusta existencias: tus cajas lo reciben en ~1 minuto.</p></div>'
-      + (PA ? '<button class="btn" id="iv_new" style="margin-bottom:14px">+ Nuevo artículo</button>' : '') + '</div>'
-    h += '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">'
-      + '<div class="card"><div class="n">' + active.length + '</div><div class="l">Artículos activos</div></div>'
-      + '<div class="card"><div class="n"' + (neg ? ' style="color:var(--bad-fg)"' : '') + '>' + neg + '</div><div class="l">Existencia negativa</div></div>'
-      + '<div class="card"><div class="n"' + (low ? ' style="color:var(--warn-fg)"' : '') + '>' + low + '</div><div class="l">Bajo mínimo</div></div>'
-      + '<div class="card"><div class="n">' + money(costVal) + '</div><div class="l">Valor en costo · a precio ' + money(retailVal) + '</div></div></div>'
-    h += '<div class="pm-tools"><input class="pm-search" id="iv_q" placeholder="Buscar nombre, SKU, código o marca…" value="' + esc(f.q) + '">'
+    var kpi = function (v, l, tone) { return '<div class="ap-kpi' + (tone ? ' ' + tone : '') + '"><b>' + v + '</b><span>' + l + '</span></div>' }
+
+    // Izquierda: título, indicadores y filtros (como el panel de la caja).
+    var h = '<div class="ap-split"><section class="card ap-side' + (f.open ? ' open' : '') + '">'
+      + '<div class="ap-head"><h2>Inventario</h2>' + (PA ? '<button class="btn" id="iv_new">Nuevo artículo</button>' : '') + '</div>'
+      + '<div class="ap-count">' + active.length.toLocaleString('es-MX') + ' artículo(s) activos</div>'
+      + '<div class="ap-kpis">'
+      + kpi(active.length.toLocaleString('es-MX'), 'Artículos')
+      + kpi(low, 'Por reabastecer', low ? 'warn' : '')
+      + kpi(neg, 'Negativos', neg ? 'bad' : '')
+      + kpi(money(costVal), 'Valor en costo')
+      + '</div>'
+      + '<button class="btn ghost ap-filtersbtn" id="iv_ftog" style="width:100%;justify-content:center;margin-bottom:10px">' + (f.open ? 'Ocultar filtros' : 'Filtros y búsqueda') + '</button>'
+      + '<div class="ap-filters">'
+      + '<input id="iv_q" placeholder="Buscar nombre, SKU, código…" value="' + esc(f.q) + '">'
+      + '<select id="iv_sort">' + INV_SORTS.map(function (o) { return '<option value="' + o[0] + '"' + (f.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>' }).join('') + '</select>'
       + '<select id="iv_cat"><option value="">Todas las categorías</option>' + cats.map(function (x) { return '<option value="' + esc(x[0]) + '"' + (f.cat === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>' }).join('') + '</select>'
-      + '<select id="iv_state">' + [['all', 'Todos'], ['neg', 'Negativos'], ['low', 'Bajo mínimo'], ['zero', 'Sin existencia'], ['inactive', 'Inactivos']].map(function (o) {
-        return '<option value="' + o[0] + '"' + (f.state === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'
-      }).join('') + '</select></div>'
-    h += '<div class="card" style="padding:6px 12px;overflow-x:auto"><table><thead><tr><th>Artículo</th><th>Categoría</th><th style="text-align:right">Existencia</th><th style="text-align:right">Costo</th><th style="text-align:right">Precio</th><th style="text-align:right">Margen</th><th></th></tr></thead><tbody>'
-    if (!pageRows.length) h += '<tr><td colspan="7"><div class="state" style="margin:10px 0">' + (all.length ? 'Sin artículos con ese filtro.' : 'Aún no hay artículos sincronizados.') + '</div></td></tr>'
+      + '<div class="ap-lbl">Estado</div><div class="ap-chips">' + INV_STATES.map(function (o) { return '<button class="ap-chip' + (f.state === o[0] ? ' on' : '') + '" data-ivst="' + o[0] + '">' + o[1] + '</button>' }).join('') + '</div>'
+      + '<p class="muted" style="font-size:12px;margin-top:12px">Valor a precio de venta: ' + money(retailVal) + '</p>'
+      + '</div></section>'
+
+    // Derecha: la tabla (PC) o una lista compacta (celular).
+    h += '<section class="card ap-main"><div class="ap-table" style="overflow-x:auto"><table><thead><tr><th>Producto</th><th>Categoría</th><th style="text-align:right">Existencia</th><th style="text-align:right">Costo</th><th style="text-align:right">Precio</th><th style="text-align:right">Margen</th><th></th></tr></thead><tbody>'
+    var empty = '<div class="state" style="margin:14px">' + (all.length ? 'Sin artículos con ese filtro.' : 'Aún no hay artículos sincronizados.') + '</div>'
+    if (!pageRows.length) h += '<tr><td colspan="7">' + empty + '</td></tr>'
+    var mlist = ''
     pageRows.forEach(function (p) {
-      var s = stockOf(ST, p), min = Number(p.stock_min || 0)
-      var cls = s < 0 ? 'pm-neg' : min > 0 && s <= min ? 'pm-low' : ''
+      var s = stockOf(ST, p), b = stockBadge(p, s)
       var m = calcMargin(p.cost_price, p.price_retail)
-      h += '<tr data-prod="' + esc(p.id) + '" style="cursor:pointer"><td><b>' + esc(p.name || '—') + '</b><br><span class="mono muted" style="font-size:11.5px">' + esc(p.sku || '') + (p.barcode ? ' · ' + esc(p.barcode) : '') + '</span></td>'
-        + '<td class="muted">' + esc((ST.CATEGORIES || {})[p.category_id] || 'Sin categoría') + '</td>'
-        + '<td style="text-align:right" class="' + cls + '">' + qty(s) + '</td>'
+      var ini = esc(String(p.name || '?').trim().charAt(0).toUpperCase())
+      var cat = esc((ST.CATEGORIES || {})[p.category_id] || 'Sin categoría')
+      var stCls = 'ap-st' + (b.tone ? ' ' + b.tone : '') + (s < 0 ? ' pm-neg' : '')
+      h += '<tr data-prod="' + esc(p.id) + '" style="cursor:pointer"><td><div class="ap-prod"><div class="ap-img">' + ini + '</div><div><b style="font-weight:500;color:var(--strong)">' + esc(p.name || '—') + '</b><br><span class="mono muted" style="font-size:12px">' + esc(p.sku || '') + (p.barcode ? ' · ' + esc(p.barcode) : '') + '</span></div></div></td>'
+        + '<td class="muted">' + cat + '</td>'
+        + '<td style="text-align:right" class="' + stCls + '">' + qty(s) + '<small>' + b.label + '</small></td>'
         + '<td style="text-align:right" class="muted">' + money(p.cost_price) + '</td>'
         + '<td style="text-align:right"><b>' + money(p.price_retail) + '</b></td>'
         + '<td style="text-align:right;color:' + (m < 0 ? 'var(--bad-fg)' : 'var(--muted)') + '">' + (Number(p.cost_price || 0) > 0 ? m + '%' : '—') + '</td>'
         + '<td style="text-align:right"><button class="btn ghost sm" data-edit="' + esc(p.id) + '">Editar</button></td></tr>'
+      mlist += '<div class="ap-mrow" data-prod="' + esc(p.id) + '"><div class="ap-img">' + ini + '</div><div class="grow"><div>' + esc(p.name || '—') + '</div><span class="mono muted" style="font-size:12px">' + esc(p.sku || '') + ' · ' + cat + '</span></div>'
+        + '<div class="end ' + stCls + '">' + qty(s) + '<small>' + money(p.price_retail) + '</small></div></div>'
     })
-    h += '</tbody></table><div class="pm-pager"><span>' + list.length + ' artículo(s)</span><span>'
-      + '<button class="btn ghost sm" id="iv_prev"' + (f.page <= 1 ? ' disabled' : '') + '>Anterior</button> Página ' + f.page + ' de ' + pages
-      + ' <button class="btn ghost sm" id="iv_next"' + (f.page >= pages ? ' disabled' : '') + '>Siguiente</button></span></div></div>'
+    h += '</tbody></table></div><div class="ap-mlist">' + (mlist || empty) + '</div>'
+      + '<div class="ap-foot"><span>Página ' + f.page + ' de ' + pages + ' · ' + list.length.toLocaleString('es-MX') + ' artículo(s)</span><span>'
+      + '<button class="btn ghost sm" id="iv_prev"' + (f.page <= 1 ? ' disabled' : '') + '>Anterior</button> '
+      + '<button class="btn ghost sm" id="iv_next"' + (f.page >= pages ? ' disabled' : '') + '>Siguiente</button></span></div></section></div>'
     c.innerHTML = h
 
     var redraw = function () { inventario(c, ctx) }
@@ -362,7 +420,9 @@
       }, 220)
     }
     byId('iv_cat').onchange = function (e) { f.cat = e.target.value; f.page = 1; redraw() }
-    byId('iv_state').onchange = function (e) { f.state = e.target.value; f.page = 1; redraw() }
+    byId('iv_sort').onchange = function (e) { f.sort = e.target.value; f.page = 1; redraw() }
+    byId('iv_ftog').onclick = function () { f.open = !f.open; redraw() }
+    c.querySelectorAll('[data-ivst]').forEach(function (b) { b.onclick = function () { f.state = b.getAttribute('data-ivst'); f.page = 1; redraw() } })
     if (byId('iv_new')) byId('iv_new').onclick = function () { window.PortalAdmin.newProduct(ctx, redraw) }
     byId('iv_prev').onclick = function () { f.page--; redraw(); window.scrollTo(0, 0) }
     byId('iv_next').onclick = function () { f.page++; redraw(); window.scrollTo(0, 0) }

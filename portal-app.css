@@ -1,0 +1,171 @@
+/* ============================================================================
+ * SPES · Portal — ESTILO DE LA APP (nov-2026)
+ *
+ * Jorge pidió que el portal se vea como el punto de venta. Este archivo copia
+ * los colores, radios y sombras de la app (src/renderer/index.css del POS,
+ * temas Blanco / Gris / Oscuro) y los aplica SOLO al portal: el panel admin
+ * sigue usando spes-ui.css sin cambios.
+ *
+ * Cómo funciona: spes-ui.css define variables (--bg, --surface, --text...).
+ * Aquí se reemplazan por los valores de la app, y se corrigen las pocas reglas
+ * de spes-ui.css que traían colores fijos del menú oscuro.
+ * Se carga DESPUÉS de spes-ui.css y del <style> de portal.html para ganar.
+ * ========================================================================== */
+
+/* ---------- Tema BLANCO (por defecto, igual a la app) ---------- */
+:root{
+  --font:'Inter', Arial, sans-serif;
+  --bg:#f5f5f5; --surface:#ffffff; --surface-2:#f9fafb; --surface-hover:#f3f4f6;
+  --border:#e5e7eb; --border-strong:#d1d5db;
+  --text:#424242; --strong:#1f2937; --muted:#6b7280; --faint:#9ca3af;
+  --primary:#424242; --primary-hover:#2f2f2f; --primary-contrast:#ffffff; --focus:#424242;
+  --input-bg:#ffffff;
+  --sidebar-bg:#ffffff; --sidebar-text:#4b5563; --sidebar-muted:#9ca3af; --sidebar-hover:#f3f4f6;
+  --sidebar-active-bg:#f3f4f6; --sidebar-active-text:#1f2937; --sidebar-border:#e5e7eb;
+  --ok-bg:#e8f6ee; --ok-fg:#1e9e5a; --warn-bg:#fbf3e2; --warn-fg:#b48214;
+  --bad-bg:#fdecec; --bad-fg:#dc2626; --info-bg:#eef0f3; --info-fg:#424242;
+  --neutral-bg:#f3f4f6; --neutral-fg:#6b7280;
+  --radius:12px; --radius-sm:8px; --radius-lg:12px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
+  --shadow-md:0 4px 12px -2px rgba(0,0,0,.08), 0 2px 6px -2px rgba(0,0,0,.05);
+  --sidebar-w:236px;
+}
+/* ---------- Tema GRIS (slate suave de la app) ---------- */
+[data-theme="gray"]{
+  --bg:#e7eaee; --surface:#f6f8fa; --surface-2:#edeff2; --surface-hover:#e2e6eb;
+  --border:#d6dae0; --border-strong:#c2c8d0;
+  --text:#2a3038; --strong:#1c2025; --muted:#5e646e; --faint:#6f7680;
+  --primary:#3b4654; --primary-hover:#2a3038; --primary-contrast:#ffffff; --focus:#3b4654;
+  --input-bg:#ffffff;
+  --sidebar-bg:#f6f8fa; --sidebar-text:#474d56; --sidebar-muted:#6f7680; --sidebar-hover:#e2e6eb;
+  --sidebar-active-bg:#e2e6eb; --sidebar-active-text:#1c2025; --sidebar-border:#d6dae0;
+  --ok-bg:#e2f2e8; --ok-fg:#1e9e5a; --warn-bg:#f6ecd6; --warn-fg:#b48214;
+  --bad-bg:#f9e4e4; --bad-fg:#dc2626; --info-bg:#e2e6eb; --info-fg:#2a3038;
+  --neutral-bg:#e2e6eb; --neutral-fg:#5e646e;
+}
+/* ---------- Tema OSCURO (el de la app: gris carbón, no negro puro) ---------- */
+[data-theme="dark"]{
+  --bg:#121212; --surface:#1f1f1f; --surface-2:#242424; --surface-hover:#2a2a2a;
+  --border:#383838; --border-strong:#4b4b4b;
+  --text:#ededed; --strong:#f5f5f5; --muted:#a8a8a8; --faint:#949494;
+  --primary:#606060; --primary-hover:#6e6e6e; --primary-contrast:#ffffff; --focus:#bebebe;
+  --input-bg:#2a2a2a;
+  --sidebar-bg:#1f1f1f; --sidebar-text:#bebebe; --sidebar-muted:#949494; --sidebar-hover:#2a2a2a;
+  --sidebar-active-bg:#2a2a2a; --sidebar-active-text:#f5f5f5; --sidebar-border:#383838;
+  --ok-bg:rgba(47,191,107,.14); --ok-fg:#2fbf6b; --warn-bg:rgba(217,161,45,.14); --warn-fg:#d9a12d;
+  --bad-bg:rgba(242,107,107,.14); --bad-fg:#f26b6b; --info-bg:#2a2a2a; --info-fg:#ededed;
+  --neutral-bg:#2a2a2a; --neutral-fg:#bebebe;
+  --shadow-sm:none; --shadow-md:0 8px 24px -8px rgba(0,0,0,.6);
+}
+[data-theme="dark"] .modal{ background:var(--surface); }
+[data-theme="dark"] select option{ background:var(--surface); }
+[data-theme="dark"] .cal, [data-theme="dark"] .rtip{ background:var(--surface); }
+
+body{ font-family:var(--font); background:var(--bg); color:var(--text); }
+h1,h2,h3,.spes-main h2{ color:var(--strong); }
+.spes-main{ max-width:1440px; padding:24px 24px 64px; }
+
+/* ---------- Campos y botones (radio 8, como la app) ---------- */
+input,select,textarea{ background:var(--input-bg); border-radius:8px; }
+.btn{ border-radius:8px; font-weight:600; }
+.card{ border-radius:12px; box-shadow:var(--shadow-sm); }
+
+/* ---------- Menú lateral CLARO ---------- */
+.spes-sidebar{ background:var(--sidebar-bg); border-right:1px solid var(--sidebar-border); }
+.spes-brand b, .spes-sidebar .spes-brand b{ color:var(--strong); }
+.spes-sidebar .spes-nav{ scrollbar-color:var(--border-strong) transparent; }
+.spes-sidebar .spes-nav::-webkit-scrollbar-track{ background:transparent; }
+.spes-sidebar .spes-nav::-webkit-scrollbar-thumb{ background:var(--border-strong); }
+.spes-sidebar .spes-nav-item, .spes-sidebar .spes-acc-head{ color:var(--sidebar-text); font-size:14px; font-weight:500; }
+.spes-sidebar .spes-nav-item .ico, .spes-sidebar .spes-acc-head .ico{ color:currentColor; }
+.spes-sidebar .spes-nav-item:hover, .spes-sidebar .spes-acc-head:hover{ background:var(--sidebar-hover); color:var(--strong); }
+.spes-sidebar .spes-nav-item.active{ background:var(--sidebar-active-bg); color:var(--sidebar-active-text); font-weight:600; }
+.spes-sidebar .spes-nav-item.active::before{ background:var(--primary); }
+.spes-sidebar .spes-nav-item.active .ico{ color:var(--sidebar-active-text); }
+.spes-sidebar .spes-acc.open > .spes-acc-head, .spes-sidebar .spes-acc.open > .spes-acc-head .ico{ color:var(--strong); }
+.spes-sidebar .spes-acc-inner{ border-left-color:var(--border); }
+.spes-sidebar .spes-nav-group-label{ color:var(--sidebar-muted); }
+#collapseBtn{ color:var(--sidebar-muted) !important; }
+
+/* ---------- Barra superior (como la de la caja) ---------- */
+.spes-topbar{ height:60px; background:var(--surface); border-bottom:1px solid var(--border); }
+.spes-topbar .vt{ font-weight:600; color:var(--muted); }
+.spes-topbar .vt .crumb{ color:var(--muted); font-weight:500; }
+.spes-topbar .vt .crumb-sep{ margin:0 6px; color:var(--faint); }
+.spes-topbar .vt b, .spes-topbar .vt > :last-child{ color:var(--strong); }
+.syncdot{ display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:500; color:var(--ok-fg); white-space:nowrap; }
+.syncdot::before{ content:''; width:8px; height:8px; border-radius:50%; background:currentColor; }
+.syncdot.warn{ color:var(--warn-fg); }
+.syncdot.off{ color:var(--faint); }
+
+/* ---------- Login claro ---------- */
+#login{ background:var(--bg); }
+.loginbox{ background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow-md); }
+.loginbox h1{ color:var(--strong); }
+.brandimg.lg{ box-shadow:0 8px 20px -10px rgba(0,0,0,.35); }
+.loginbox a{ color:var(--strong) !important; font-weight:600; }
+.loginsep{ color:var(--faint) !important; }
+
+/* ---------- Diseño de 2 paneles (filtros a la izquierda, como la app) ---------- */
+.ap-split{ display:grid; grid-template-columns:320px minmax(0,1fr); gap:20px; align-items:start; }
+.ap-side{ position:sticky; top:84px; padding:18px; }
+.ap-side h2{ margin:0; }
+.ap-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ap-count{ color:var(--muted); font-size:13.5px; margin-top:4px; }
+.ap-kpis{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0; }
+.ap-kpi{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:var(--surface); }
+.ap-kpi b{ display:block; font-size:18px; font-weight:700; color:var(--strong); font-variant-numeric:tabular-nums; }
+.ap-kpi span{ font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+.ap-kpi.warn b{ color:var(--warn-fg); } .ap-kpi.bad b{ color:var(--bad-fg); } .ap-kpi.ok b{ color:var(--ok-fg); }
+.ap-side input, .ap-side select{ width:100%; height:42px; margin-bottom:10px; }
+.ap-lbl{ font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:8px 0; }
+.ap-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.ap-chip{ padding:6px 12px; border-radius:999px; background:var(--neutral-bg); color:var(--neutral-fg); font-size:13px; border:0; cursor:pointer; font-family:inherit; }
+.ap-chip:hover{ color:var(--strong); }
+.ap-chip.on{ background:var(--primary); color:var(--primary-contrast); }
+.ap-main{ padding:0; overflow:hidden; }
+.ap-main table{ width:100%; }
+.ap-main th{ background:var(--surface-2); padding:13px 16px; font-weight:600; color:var(--strong); font-size:13.5px; }
+.ap-main td{ padding:11px 16px; }
+.ap-main tbody tr:hover td{ background:var(--surface-2); }
+.ap-prod{ display:flex; align-items:center; gap:12px; }
+.ap-img{ width:38px; height:38px; flex:none; border-radius:8px; border:1px solid var(--border); display:grid; place-items:center; font-size:12px; font-weight:600; color:var(--faint); background:var(--surface-2); }
+.ap-st small{ display:block; font-size:12px; color:var(--muted); font-weight:400; }
+.ap-st.warn{ color:var(--warn-fg); font-weight:600; } .ap-st.bad{ color:var(--bad-fg); font-weight:600; }
+.ap-foot{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 16px; border-top:1px solid var(--border); color:var(--muted); font-size:13.5px; }
+.ap-filtersbtn{ display:none; }
+.ap-mlist{ display:none; }
+@media(max-width:1100px){ .ap-split{ grid-template-columns:280px minmax(0,1fr); } }
+@media(max-width:900px){
+  .ap-split{ grid-template-columns:1fr; gap:14px; }
+  .ap-side{ position:static; }
+  .ap-filtersbtn{ display:inline-flex; }
+  .ap-side .ap-filters{ display:none; }
+  .ap-side.open .ap-filters{ display:block; }
+  .ap-main .ap-table{ display:none; }
+  .ap-mlist{ display:block; }
+  .ap-mrow{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .ap-mrow .grow{ flex:1; min-width:0; }
+  .ap-mrow .grow div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; color:var(--strong); }
+  .ap-mrow .end{ text-align:right; white-space:nowrap; }
+}
+
+/* ---------- Barra inferior en celular (como la de la caja) ---------- */
+.ap-bottom{ display:none; }
+@media(max-width:900px){
+  .ap-bottom{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:50; height:64px; padding-bottom:env(safe-area-inset-bottom);
+    background:var(--surface); border-top:1px solid var(--border); }
+  .ap-bottom button{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; border:0; background:transparent;
+    font-family:inherit; font-size:11px; color:var(--faint); cursor:pointer; position:relative; padding:0; }
+  .ap-bottom button .ico{ width:22px; height:22px; }
+  .ap-bottom button.on{ color:var(--strong); font-weight:600; }
+  .ap-bottom button.on::before{ content:''; position:absolute; top:0; left:22%; right:22%; height:3px; border-radius:0 0 3px 3px; background:var(--strong); }
+  .spes-main{ padding:16px 14px 92px; }
+  #menuBtn{ display:none !important; }
+  .spes-topbar{ padding:0 14px; }
+  .spes-topbar .syncdot, #who{ display:none; }
+}
+
+/* Encabezados de tabla en minúsculas normales (la app no usa MAYÚSCULAS). */
+.ap-main th, .spes-main table th{ text-transform:none; letter-spacing:0; font-size:13.5px; }
+.ap-st{ white-space:nowrap; }
